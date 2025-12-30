@@ -9,23 +9,31 @@ require_once '../includes/auth_check.php';
     <title>Computer Cafe - Waitlist</title>
     <link href="../assets/css/output.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts (Standardized & Preconnected) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
 <body class="bg-slate-900 h-screen flex overflow-hidden font-sans text-gray-100">
     
     <?php include '../includes/sidebar.php'; ?>
 
-    <main class="flex-1 flex flex-col overflow-hidden relative">
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-950">
         <!-- Background Grid -->
-        <div class="absolute inset-0 z-0 opacity-20 pointer-events-none" 
+        <div class="absolute inset-0 z-0 opacity-10 pointer-events-none" 
              style="background-image: linear-gradient(#334155 1px, transparent 1px), linear-gradient(to right, #334155 1px, transparent 1px); background-size: 40px 40px;">
         </div>
 
-        <header class="glass-panel z-10 py-4 px-6 flex justify-between items-center bg-slate-900/80">
-            <h1 class="text-2xl font-bold uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
-                Waitlist Queue
-            </h1>
-            <button onclick="document.getElementById('addWaitlistModal').classList.remove('hidden')" class="btn-primary px-4 py-2 rounded uppercase text-xs tracking-wider">
-                <i class="fas fa-plus mr-2"></i> Add Entry
+        <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10 sticky top-0">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-orbitron neon-text" style="font-family: 'Orbitron', sans-serif;">
+                    Waiting Queue
+                </h1>
+                <p class="text-xs text-cyan-500/70 font-mono mt-1 uppercase tracking-wider">Customer Allocation & Priority</p>
+            </div>
+            <button onclick="document.getElementById('addWaitlistModal').classList.remove('hidden')" class="btn btn-primary shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+                <i class="fas fa-plus"></i> <span>Add Entry</span>
             </button>
         </header>
 
@@ -34,7 +42,7 @@ require_once '../includes/auth_check.php';
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="text-gray-400 border-b border-gray-700 bg-slate-800/50 uppercase text-xs tracking-wider">
-                            <th class="p-4 font-mono">#ID</th>
+
                             <th class="p-4">Customer</th>
                             <th class="p-4">Queue Time</th>
                             <th class="p-4">Status</th>

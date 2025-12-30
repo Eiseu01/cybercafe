@@ -1,127 +1,321 @@
 // assets/js/dashboard.js
-let stations = [];
+let computers = [];
+let currentRate = 20.00; // Default fallback if API fails
 let serverTimeOffset = 0; 
 let timerInterval;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    fetchStations();
-    setInterval(fetchStations, 5000);
-    timerInterval = setInterval(updateTimers, 1000);
+    fetchComputers();
+    fetchDashboardStats();
+    
+    setInterval(fetchComputers, 5000); // 5s for realtime status
+    setInterval(fetchDashboardStats, 15000); // 15s for stats
+    
+    timerInterval = setInterval(updateTimers, 200); // 5fps for smooth timer
     
     // Server clock
     setInterval(() => {
         const now = new Date(Date.now() + serverTimeOffset);
-        document.getElementById('server-clock').textContent = now.toLocaleTimeString();
+        if(document.getElementById('server-clock')) document.getElementById('server-clock').textContent = now.toLocaleTimeString();
     }, 1000);
     
     // Wire up events
-    document.getElementById('startForm').addEventListener('submit', handleStartSubmit);
+    const startForm = document.getElementById('startForm');
+    if(startForm) startForm.addEventListener('submit', handleStartSubmit);
 });
 
-async function fetchStations() {
+async function fetchDashboardStats() {
+    if (!document.getElementById('stat-revenue')) return; // Exit if not on dashboard page
+    
     try {
-        const res = await fetch('../api/stations.php');
+        const res = await fetch('../api/dashboard_stats.php');
         const json = await res.json();
         
         if (json.success) {
-            stations = json.data;
+            const data = json.data;
+            
+            // 1. Revenue
+            const revEl = document.getElementById('stat-revenue');
+            if (revEl) revEl.textContent = '₱' + parseFloat(data.revenue_today).toLocaleString(undefined, {minimumFractionDigits: 2});
+            
+            const growthEl = document.getElementById('stat-growth');
+            if (growthEl) {
+                const growth = data.revenue_growth;
+                const color = growth >= 0 ? 'text-emerald-400' : 'text-red-400';
+                const icon = growth >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                growthEl.className = `text-xs font-bold ${color}`;
+                growthEl.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(growth)}%`;
+            }
+
+            // 2. Bar widths (Visual only, as numbers come from fetchComputers for realtime accuracy, but this is fine helper)
+            // Actually fetchComputers handles the numbers. Lets just update bars if fetchComputers hasn't? 
+            // Better to let fetchComputers update numbers and this update bars OR sync them.
+            // Let's use stats data for bars
+            const occPct = (data.pc_occupied / data.pc_total) * 100;
+            const avlPct = (data.pc_available / data.pc_total) * 100;
+            
+            if(document.getElementById('bar-occupied')) document.getElementById('bar-occupied').style.width = `${occPct}%`;
+            if(document.getElementById('bar-available')) document.getElementById('bar-available').style.width = `${avlPct}%`;
+
+            // 3. Feed
+            const feedContainer = document.getElementById('feed-container');
+            if (feedContainer && data.recent_transactions) {
+                feedContainer.innerHTML = data.recent_transactions.map(tx => `
+                    <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-white/5 hover:bg-cyan-900/10 transition group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded bg-cyan-900/40 flex items-center justify-center text-cyan-400 border border-cyan-500/30 group-hover:shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+                                <i class="fas fa-receipt text-xs"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-white font-bold font-mono tracking-wide uppercase">${tx.customer_name}</div>
+                                <div class="text-[10px] text-cyan-500/50 font-mono">${tx.computer_name || 'COUNTER'} • ${new Date(tx.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                            </div>
+                        </div>
+                        <div class="text-cyan-400 font-bold text-xs font-mono tracking-widest">+₱${parseFloat(tx.amount).toFixed(2)}</div>
+                    </div>
+                `).join('');
+                if (data.recent_transactions.length === 0) feedContainer.innerHTML = '<div class="text-center text-gray-500 text-xs py-4 font-mono">NO DATA STREAM</div>';
+            }
+
+            // 4. Leaderboard
+            const lbContainer = document.getElementById('leaderboard-container');
+            if(lbContainer && data.top_customers) {
+                lbContainer.innerHTML = data.top_customers.map((c, i) => {
+                    let rankColor = "bg-slate-700/50 text-gray-400";
+                    if(i===0) rankColor = "bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.2)]";
+                    if(i===1) rankColor = "bg-gray-400/20 text-gray-300 border border-gray-400/30";
+                    if(i===2) rankColor = "bg-amber-700/20 text-amber-600 border border-amber-700/30";
+
+                    return `
+                    <div class="flex items-center justify-between py-2 px-2 hover:bg-white/[0.02] rounded transition">
+                        <div class="flex items-center space-x-3">
+                            <div class="${rankColor} font-bold w-6 h-6 rounded flex items-center justify-center text-[10px] font-mono shadow-inner">#${i+1}</div>
+                            <img src="https://ui-avatars.com/api/?name=${c.customer_name}&background=random&color=fff&size=32" class="rounded w-6 h-6 opacity-80 border border-white/10">
+                            <span class="text-xs text-gray-300 font-bold tracking-wide uppercase font-mono">${c.customer_name}</span>
+                        </div>
+                        <div class="text-cyan-500 text-xs font-bold font-mono tracking-widest">₱${parseFloat(c.total_spent).toLocaleString()}</div>
+                    </div>
+                    <div class="h-px bg-white/5 w-full my-1"></div>
+                `}).join('');
+            }
+        }
+    } catch(e) { console.error("Stats fetch error", e); }
+}
+
+async function fetchComputers() {
+    try {
+        const res = await fetch('../api/computers.php?v=' + Date.now());
+        const json = await res.json();
+        
+        if (json.success) {
+            computers = json.data;
+            
+            // Sync Rate (Global default is just for new additions or fallback in UI)
+            // But now every computer has its own rate, so global 'currentRate' is less relevant
+            // except maybe for 'Add Computer' defaults.
+            
             const serverDate = new Date(json.server_time); 
             serverTimeOffset = serverDate.getTime() - Date.now();
             
-            renderStations();
+            renderComputers();
+            
+            // Update Waitlist Count
+            const waitingEl = document.getElementById('stat-waiting');
+            if (waitingEl) {
+                waitingEl.textContent = json.waiting_count !== undefined ? json.waiting_count : '--';
+            }
+
             updateStats();
         }
     } catch (e) {
-        console.error("Failed to fetch stations", e);
+        console.error("Failed to fetch computers", e);
     }
 }
 
-function renderStations() {
+function renderComputers() {
     const grid = document.getElementById('stations-grid');
-    grid.innerHTML = '';
+    if (!grid) return; 
     
-    stations.forEach(station => {
-        const isOccupied = station.status === 'Occupied';
+    // remove spinner if it exists
+    const loader = document.getElementById('initial-loader');
+    if(loader) loader.remove();
+
+    // Create a set of active IDs to handle deletions if needed (though usually fixed count)
+    const activeIds = new Set();
+
+    computers.forEach(pc => {
+        activeIds.add(pc.id);
+        activeIds.add(pc.id);
+        const cardId = `station-card-${pc.id}`;
+        let existingCard = document.getElementById(cardId);
         
-        // Dynamic Cyber Styling
-        const borderClass = isOccupied ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]';
-        const bgClass = isOccupied ? 'bg-slate-800/80' : 'bg-slate-800/40 hover:bg-slate-800/60';
-        const iconColor = isOccupied ? 'text-red-500' : 'text-emerald-500';
+        const isOccupied = pc.status === 'Occupied';
+        const displayRate = pc.current_rate || pc.default_rate || currentRate;
+        
+        // Determine if we need to re-render
+        let shouldRender = true;
+        
+        if (existingCard) {
+            const currentStatus = existingCard.dataset.status;
+            const currentCustomer = existingCard.dataset.customer;
+            // If status is same, and (if occupied) customer is same, we assume NO render needed
+            // The timer counts by itself.
+            if (currentStatus === pc.status) {
+                if (pc.status === 'Occupied' && currentCustomer === pc.customer_name) {
+                    shouldRender = false;
+                } else if (pc.status !== 'Occupied') {
+                    shouldRender = false;
+                }
+            }
+        }
+
+        if (!shouldRender) return; // SKIP RENDER -> SMOOTH TIMER
+
+        // Admin Controls (Top Right - Delete Only)
+        let adminTopControls = '';
+        let adminBottomBtn = '';
+        
+        if (typeof USER_ROLE !== 'undefined') { // Show for all roles as requested
+            adminTopControls = `
+            <div class="mr-2">
+                <button onclick="openDeleteComputerModal(${pc.id}, '${pc.computer_name}')" class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer" title="Delete Terminal">
+                    <i class="fas fa-trash-alt text-xs"></i>
+                </button>
+            </div>`;
+
+            // Blue Edit Button for footer
+            adminBottomBtn = `
+                <button onclick="openEditComputerModal(${pc.id}, '${pc.computer_name}')" class="btn w-full mt-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/30 text-xs uppercase tracking-widest shadow-none transition-all">
+                    <i class="fas fa-cog mr-1"></i> Configure
+                </button>
+            `;
+        }
+        
+        // Modern Flat Styling
+        let cardBase = "card p-0 flex flex-col justify-between h-full min-h-[260px] overflow-hidden group hover:shadow-glow border-transparent";
+        let statusColor = "bg-brand-surface";
+        let statusBadge = "";
         
         // Timer Logic
         let timerHtml = '';
-        if (isOccupied && station.start_time) {
-            timerHtml = `<div class="text-3xl font-mono my-4 font-bold text-white tracking-widest timer" data-start="${station.start_time}">--:--:--</div>`;
+
+        if (isOccupied && pc.start_time) {
+            statusColor = "bg-brand-surface"; 
+            statusBadge = `<span class="badge bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Occupied</span>`;
+            
+            timerHtml = `
+                <div class="my-6 text-center">
+                    <div class="text-4xl font-bold text-gray-300 tracking-tight timer mb-1" data-start="${pc.start_time}">Syncing...</div>
+                    <div class="text-xs font-bold text-brand-secondary uppercase tracking-wider mb-2">Session Duration</div>
+                    <div class="inline-block px-3 py-1 bg-white/5 rounded-lg text-sm font-medium text-emerald-400 live-price" data-start="${pc.start_time}" data-rate="${displayRate}">₱0.00</div>
+                </div>`;
         } else {
-            timerHtml = `<div class="text-3xl font-mono my-4 font-bold text-gray-600 tracking-widest">00:00:00</div>`;
+            statusBadge = `<span class="badge bg-brand-secondary/10 text-brand-secondary border-brand-secondary/20">Available</span>`;
+            timerHtml = `
+            <div class="my-6 text-center opacity-50">
+                <div class="text-4xl font-bold text-brand-secondary tracking-tight mb-1">--:--</div>
+                <div class="text-xs font-bold text-brand-secondary uppercase tracking-wider">Ready to Start</div>
+            </div>`;
         }
 
         // Action Button
         let btnHtml = '';
         let userDisplay = '';
         
-        if (station.status === 'Available') {
-            userDisplay = `<div class="text-xs text-gray-500 font-mono italic mb-2">SYSTEM STANDBY</div>`;
+        if (pc.status === 'Available') {
             btnHtml = `
-                <button onclick="openStartModal(${station.id}, '${station.station_name}')" 
-                    class="w-full py-2 rounded bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600 hover:text-white transition uppercase text-xs font-bold tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                    <i class="fas fa-power-off mr-1"></i> Initialize
+                <button onclick="openStartModal(${pc.id}, '${pc.computer_name}')" 
+                    class="btn btn-secondary w-full justify-center group-hover:bg-brand-primary group-hover:text-white group-hover:border-transparent">
+                    <i class="fas fa-power-off mr-1"></i> Start Session
                 </button>`;
-        } else if (station.status === 'Occupied') {
+        } else if (pc.status === 'Occupied') {
              userDisplay = `
-                <div class="mb-2">
-                    <div class="text-[10px] text-gray-400 uppercase tracking-widest">Operator</div>
-                    <div class="text-cyan-400 font-bold truncate font-mono"><i class="fas fa-user-circle mr-1"></i> ${station.customer_name}</div>
+                <div class="flex items-center justify-center space-x-2 mb-4 bg-brand-primary/10 py-1.5 mx-6 rounded-lg">
+                    <i class="fas fa-user-circle text-brand-primary"></i>
+                    <span class="text-sm font-medium text-gray-300 truncate max-w-[120px]">${pc.customer_name}</span>
                 </div>
              `;
             btnHtml = `
-                <button onclick="endSession(${station.session_id}, '${station.customer_name}')" 
-                    class="w-full py-2 rounded bg-red-600/20 text-red-400 border border-red-500/50 hover:bg-red-600 hover:text-white transition uppercase text-xs font-bold tracking-wider shadow-[0_0_10px_rgba(220,38,38,0.2)]">
-                    <i class="fas fa-stop mr-1"></i> Terminate
+                <button onclick="endSession(${pc.session_id}, '${pc.customer_name}')" 
+                    class="btn btn-danger w-full justify-center bg-red-500/10 hover:bg-red-600 border-red-500/20 text-red-400 hover:text-white">
+                    End Session
                 </button>`;
-        } else {
-            btnHtml = `<button disabled class="w-full py-2 rounded bg-gray-700 text-gray-400 cursor-not-allowed uppercase text-xs font-bold tracking-wider">Maintenance</button>`;
+        }
+        
+        // Maintenance
+        if (pc.status === 'Maintenance') {
+             statusBadge = `<span class="badge bg-amber-500/10 text-amber-500 border-amber-500/20">Maintenance</span>`;
+             timerHtml = `<div class="my-6 text-center text-amber-500/50 font-bold text-xl uppercase tracking-widest">Offline</div>`;
+             btnHtml = `<button disabled class="btn w-full bg-white/5 text-gray-500 cursor-not-allowed border-transparent">Unavailable</button>`;
         }
 
         const html = `
-            <div class="glass-panel p-6 rounded-xl relative transition-all duration-300 hover:-translate-y-1 border ${borderClass} ${bgClass} group flex flex-col justify-between h-auto min-h-[250px]">
-                <div>
-                    <div class="flex justify-between items-start border-b border-gray-700/50 pb-2 mb-2">
-                        <h3 class="font-bold text-lg text-white font-mono uppercase tracking-widest">${station.station_name}</h3>
-                        <div class="${iconColor} animate-pulse"><i class="fas fa-circle text-[8px]"></i></div>
+            <div id="${cardId}" data-status="${pc.status}" data-customer="${pc.customer_name || ''}" class="${cardBase} ${statusColor}">
+                
+                <!-- Card Header -->
+                <div class="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                    <h3 class="font-bold text-lg text-gray-300 tracking-wide">${pc.computer_name}</h3>
+                    <div class="flex items-center gap-2">
+                        ${adminTopControls}
+                        ${statusBadge}
                     </div>
                 </div>
                 
-                <div class="text-center flex-1 flex flex-col justify-center">
-                    ${timerHtml}
-                    ${userDisplay}
+                <!-- Card Body -->
+                <div class="flex-1 flex flex-col justify-center relative pt-2">
+                     <div class="text-center mb-[-1rem] z-10 relative">
+                        <span class="inline-block px-2 py-0.5 rounded bg-white/5 text-[10px] font-bold font-mono text-gray-500 border border-white/5">
+                            ₱${parseFloat(displayRate).toFixed(2)} / HR
+                        </span>
+                     </div>
+                     ${timerHtml}
+                     ${userDisplay}
                 </div>
                 
-                <div class="mt-2">
+                <!-- Card Footer -->
+                <div class="p-5 border-t border-white/5 bg-white/[0.02]">
                     ${btnHtml}
+                    ${adminBottomBtn}
                 </div>
+            </div>`;
 
-                <!-- Corner Decorations -->
-                <div class="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/20 rounded-tl-lg"></div>
-                <div class="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/20 rounded-br-lg"></div>
-            </div>
-        `;
-        grid.insertAdjacentHTML('beforeend', html);
+        if (existingCard) {
+            existingCard.outerHTML = html;
+        } else {
+            grid.insertAdjacentHTML('beforeend', html);
+        }
     });
     
+    // Remove deleted computers
+    Array.from(grid.children).forEach(child => {
+        if (child.id.startsWith('station-card-')) {
+            const idPart = parseInt(child.id.replace('station-card-', ''));
+            if (!activeIds.has(idPart)) {
+                child.remove();
+            }
+        }
+    });
+    
+    // Instant update after render
     updateTimers();
 }
 
 function updateTimers() {
     const timers = document.querySelectorAll('.timer');
+    const prices = document.querySelectorAll('.live-price');
     const now = Date.now() + serverTimeOffset;
     
+    // Update Timers
     timers.forEach(el => {
-        const start = new Date(el.dataset.start).getTime();
-        const diff = now - start;
-        
-        if (diff >= 0) {
+        try {
+            const startStr = el.dataset.start;
+            const start = new Date(startStr).getTime();
+            let diff = now - start;
+            
+            if (isNaN(diff)) { el.textContent = "00:00:00"; return; }
+            if (diff < 0) diff = 0;
+            
             const hrs = Math.floor(diff / 3600000);
             const mins = Math.floor((diff % 3600000) / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
@@ -130,25 +324,37 @@ function updateTimers() {
                 (hrs < 10 ? '0' : '') + hrs + ':' + 
                 (mins < 10 ? '0' : '') + mins + ':' + 
                 (secs < 10 ? '0' : '') + secs;
-        }
+        } catch(e) { console.error(e); }
+    });
+
+    // Update Prices
+    prices.forEach(el => {
+        try {
+            const startStr = el.dataset.start;
+            const start = new Date(startStr).getTime();
+            let diff = now - start; 
+
+            if (isNaN(diff) || diff < 0) diff = 0;
+            
+            const rate = parseFloat(el.dataset.rate) || currentRate;
+            const hours = diff / 3600000;
+            const rawPrice = hours * rate;
+            const price = Math.round(rawPrice * 4) / 4; // Round to .25
+            
+            el.textContent = `Bill: ₱${price.toFixed(2)}`;
+        } catch(e) {}
     });
 }
 
 function updateStats() {
-    const total = stations.length;
+    const total = computers.length;
     let occ = 0;
-    stations.forEach(s => {
-        if(s.status === 'Occupied') occ++;
-    });
+    computers.forEach(pc => { if(pc.status === 'Occupied') occ++; });
     
     if(document.getElementById('stat-available')) 
         document.getElementById('stat-available').textContent = (total - occ);
     if(document.getElementById('stat-occupied'))
         document.getElementById('stat-occupied').textContent = occ;
-    
-    // Waitlist placeholder or fetch if planned
-    if(document.getElementById('stat-waiting'))
-        document.getElementById('stat-waiting').textContent = '--'; 
 }
 
 // Modals
@@ -163,16 +369,15 @@ function closeModal(id) {
     document.getElementById(id).classList.add('hidden');
     if(id === 'startModal') document.getElementById('startForm').reset();
 }
-window.closeModal = closeModal; // Make global
+window.closeModal = closeModal;
 
-// Start Session Submit
 async function handleStartSubmit(e) {
     e.preventDefault();
     const stationId = document.getElementById('start-station-id').value;
     const customerName = document.getElementById('start-customer').value;
     
     try {
-        const res = await fetch('../api/stations.php?action=start', {
+        const res = await fetch('../api/computers.php?action=start', {
             method: 'POST',
             body: JSON.stringify({ station_id: stationId, customer_name: customerName })
         });
@@ -180,43 +385,157 @@ async function handleStartSubmit(e) {
         
         if(json.success) {
             closeModal('startModal');
-            fetchStations();
+            fetchComputers();
         } else {
             alert(json.message);
         }
-    } catch(err) {
-        alert("Error starting session");
-    }
+    } catch(err) { alert("Error starting session"); }
 }
 
-// Open Stop Confirmation
 function endSession(sessionId, customerName) {
     document.getElementById('stop-session-id').value = sessionId;
     document.getElementById('stop-customer-name').textContent = customerName || 'Customer';
     document.getElementById('stopConfirmModal').classList.remove('hidden');
 }
-window.endSession = endSession; // Make global
+window.endSession = endSession;
 
-// Actual API Call
+// --- ADMIN FUNCTIONS ---
+function openAddComputerModal() { // Renamed from Station
+    document.getElementById('addStationModal').classList.remove('hidden');
+    document.getElementById('add-station-name').focus();
+}
+
+function openEditComputerModal(id, name) { // Renamed from Station
+    document.getElementById('edit-station-id').value = id;
+    document.getElementById('edit-station-name').value = name;
+    
+    const pc = computers.find(s => s.id == id);
+    const rateInput = document.getElementById('edit-station-rate');
+    const rateLabel = rateInput.previousElementSibling;
+    const statusSelect = document.getElementById('edit-station-status');
+    const statusContainer = document.getElementById('edit-status-container');
+    
+    // Always show rate input
+    rateInput.style.display = 'block';
+    if(rateLabel) rateLabel.style.display = 'block';
+
+    const currentPcRate = pc.current_rate || pc.default_rate || 20.00;
+    rateInput.value = currentPcRate;
+    rateInput.placeholder = "Rate: " + currentPcRate;
+    rateInput.disabled = false;
+
+    if (pc && pc.status === 'Occupied') {
+        if(rateLabel) rateLabel.innerText = "Hourly Rate (Active Session + Future)";
+        statusContainer.classList.add('hidden');
+    } else {
+        if(rateLabel) rateLabel.innerText = "Hourly Rate";
+        statusContainer.classList.remove('hidden');
+        statusSelect.value = pc.status === 'Maintenance' ? 'Maintenance' : 'Available';
+    }
+
+    document.getElementById('editStationModal').classList.remove('hidden');
+    document.getElementById('edit-station-name').focus();
+}
+
+async function handleAddComputer(e) {
+    e.preventDefault();
+    const name = document.getElementById('add-station-name').value;
+    
+    try {
+        const res = await fetch('../api/computers.php?action=add_computer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name })
+        });
+        const json = await res.json();
+        if (json.success) {
+            closeModal('addStationModal');
+            document.getElementById('addStationForm').reset();
+            fetchComputers();
+        } else { alert(json.message); }
+    } catch (err) { alert('Error adding computer'); }
+}
+
+async function handleEditComputer(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-station-id').value;
+    const name = document.getElementById('edit-station-name').value;
+    const rate = document.getElementById('edit-station-rate').value;
+    const status = document.getElementById('edit-station-status').value;
+    
+    const isOccupiedHidden = document.getElementById('edit-status-container').classList.contains('hidden');
+    
+    try {
+        const body = { id, name };
+        if (rate) body.rate = rate; 
+        if (!isOccupiedHidden) body.status = status;
+        
+        const res = await fetch('../api/computers.php?action=edit_computer', { // Updated API
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const json = await res.json();
+        if (json.success) {
+            closeModal('editStationModal');
+            fetchComputers();
+        } else { alert(json.message); }
+    } catch (err) { alert('Error updating computer'); }
+}
+
+async function processDeleteComputer() {
+    const id = document.getElementById('delete-station-id').value;
+    try {
+        const res = await fetch('../api/computers.php?action=delete_computer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id })
+        });
+        const json = await res.json();
+        if (json.success) {
+            closeModal('deleteStationModal');
+            fetchComputers();
+        } else { alert(json.message); }
+    } catch (err) { alert('Error deleting computer'); }
+}
+
+function openDeleteComputerModal(id, name) {
+    document.getElementById('delete-station-id').value = id;
+    document.getElementById('delete-station-name').textContent = name;
+    document.getElementById('deleteStationModal').classList.remove('hidden');
+}
+
 async function processStopSession() {
     const sessionId = document.getElementById('stop-session-id').value;
     closeModal('stopConfirmModal');
-    
     try {
-        const res = await fetch('../api/stations.php?action=end', {
+        const res = await fetch('../api/computers.php?action=end', {
             method: 'POST',
             body: JSON.stringify({ session_id: sessionId })
         });
         const json = await res.json();
-        
         if(json.success) {
-            document.getElementById('end-fee').textContent = '$' + parseFloat(json.fee).toFixed(2);
+            document.getElementById('end-fee').textContent = '₱' + parseFloat(json.fee).toFixed(2);
             document.getElementById('endModal').classList.remove('hidden');
-        } else {
-            alert(json.message);
-        }
-    } catch(err) {
-        alert("Error ending session");
-    }
+            fetchComputers();
+        } else { alert(json.message); }
+    } catch(err) { alert("Error ending session"); }
 }
-window.processStopSession = processStopSession; // Make global
+
+// Wire up Admin events
+document.addEventListener('DOMContentLoaded', () => {
+    // Note: 'rateForm' (global rates) is effectively deprecated or used only for bulk updates if we kept it.
+    // The user asked to remove rate tables. So we might just hide the Rates button in HTML.
+    
+    const addForm = document.getElementById('addStationForm'); // Modal ID unchanged for now to save HTML edits
+    if (addForm) addForm.addEventListener('submit', handleAddComputer);
+
+    const editForm = document.getElementById('editStationForm');
+    if (editForm) editForm.addEventListener('submit', handleEditComputer);
+});
+
+// Expose for HTML onclicks
+window.openEditComputerModal = openEditComputerModal;
+window.openDeleteComputerModal = openDeleteComputerModal;
+window.processDeleteComputer = processDeleteComputer;
+window.processStopSession = processStopSession;

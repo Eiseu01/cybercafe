@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             
-            echo json_encode(['success' => true, 'message' => 'Login successful']);
+            echo json_encode(['success' => true, 'message' => 'Login successful', 'role' => $user['role']]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
         }
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
 
 if ($action === 'logout') {
     session_destroy();
-    header("Location: ../login.php");
+    header("Location: ../pages/login.php");
     exit;
 }
 
@@ -50,6 +50,18 @@ if ($action === 'seed_admin') {
         $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES ('admin', ?, 'Admin')");
         $stmt->execute([$pass]);
         echo json_encode(['success' => true, 'message' => 'Admin created (admin/admin123)']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'seed_staff') {
+    $pass = password_hash('staff123', PASSWORD_DEFAULT);
+    try {
+        $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES ('staff', ?, 'Staff')");
+        $stmt->execute([$pass]);
+        echo json_encode(['success' => true, 'message' => 'Staff created (staff/staff123)']);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }

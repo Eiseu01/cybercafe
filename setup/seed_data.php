@@ -1,6 +1,6 @@
 <?php
 // seed_data.php
-require_once 'includes/db_connect.php';
+require_once '../includes/db_connect.php';
 
 echo "<h1>Seeding Data...</h1>";
 set_time_limit(300); // 5 mins max
@@ -20,6 +20,7 @@ try {
     
     for ($i = 0; $i < 1200; $i++) {
         $sid = $stations[array_rand($stations)];
+        // ... (rest of logic is fine)
         $name = "Customer_" . rand(1000, 9999);
         
         // Random date in last 30 days
@@ -48,7 +49,7 @@ try {
     
     // Refresh Views if needed? Views are virtual, so no need.
     
-    echo "<p><a href='index.php'>Go to Dashboard</a></p>";
+    echo "<p><a href='../pages/dashboard.php'>Go to Dashboard</a></p>";
 
 } catch (PDOException $e) {
     echo "<p style='color:red'>Error: " . $e->getMessage() . "</p>";

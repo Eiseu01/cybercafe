@@ -84,19 +84,24 @@ DETERMINISTIC
 BEGIN
     DECLARE hours DECIMAL(10,2);
     DECLARE fee DECIMAL(10,2);
+    DECLARE rounded_fee DECIMAL(10,2);
     
     -- Calculate difference in hours (including partials)
+    -- TIMESTAMPDIFF(MINUTE) returns full minutes (floored)
     SET hours = TIMESTAMPDIFF(MINUTE, start_dt, end_dt) / 60.0;
     
-    -- Minimum charge for 1 hour if less
-    IF hours < 0.02 THEN -- Just a tiny threshold for testing, usually 1 hr min
+    -- Minimum charge rule (optional, essentially 0 logic)
+    IF hours < 0 THEN 
         SET hours = 0;
     END IF;
     
-    -- Simple calculation: hours * rate
+    -- Base calculation
     SET fee = hours * rate;
     
-    RETURN ROUND(fee, 2);
+    -- Rounding to nearest 0.25
+    SET rounded_fee = ROUND(fee * 4) / 4;
+    
+    RETURN ROUND(rounded_fee, 2);
 END //
 DELIMITER ;
 

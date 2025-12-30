@@ -41,7 +41,10 @@ async function fetchWaitlist() {
         rows.innerHTML += `
             <tr class="hover:bg-white/5 transition border-b border-gray-700/50">
 
-                <td class="p-4 font-bold text-white">${item.customer_name}</td>
+                <td class="p-4 font-bold text-white flex items-center space-x-3">
+                    <img src="https://ui-avatars.com/api/?name=${item.customer_name}&background=random&color=fff&size=32" class="rounded w-8 h-8 opacity-80 border border-white/10">
+                    <span class="font-mono tracking-wide uppercase">${item.customer_name}</span>
+                </td>
                 <td class="p-4 text-gray-400 font-mono text-xs">${timeStr}</td>
                 <td class="p-4"><span class="bg-amber-500/10 text-amber-500 border border-amber-500/50 py-1 px-3 rounded-full text-xs uppercase tracking-wider">${item.status}</span></td>
                 <td class="p-4 text-right">
@@ -54,10 +57,14 @@ async function fetchWaitlist() {
 }
 
 async function addToWaitlist(name) {
-    await fetch('../api/waitlist.php?action=add', {
+    const res = await fetch('../api/waitlist.php?action=add', {
         method: 'POST',
         body: JSON.stringify({ customer_name: name })
     });
+    const json = await res.json();
+    if(!json.success) {
+        alert(json.message);
+    }
     fetchWaitlist();
 }
 
@@ -76,18 +83,27 @@ async function openAssignModal(id, name) {
     document.getElementById('assign-name').textContent = `CUSTOMER: ${name}`;
     
     // Fetch available stations
-    const res = await fetch('../api/stations.php');
+    const res = await fetch('../api/computers.php');
     const json = await res.json();
     const select = document.getElementById('assign-station-select');
     select.innerHTML = '';
     
-    const available = json.data.filter(s => s.status === 'Available');
+    // Status is 'Available' in computers table
+    // Deduplicate and Filter
+    const seen = new Set();
+    const available = json.data.filter(s => {
+        if(s.status === 'Available' && !seen.has(s.id)) {
+            seen.add(s.id);
+            return true;
+        }
+        return false;
+    });
     
     if(available.length === 0) {
         select.innerHTML = '<option disabled selected>NO TERMINALS AVAILABLE</option>';
     } else {
         available.forEach(s => {
-            select.innerHTML += `<option value="${s.id}">${s.station_name}</option>`;
+            select.innerHTML += `<option value="${s.id}">${s.computer_name}</option>`;
         });
     }
     
@@ -96,32 +112,56 @@ async function openAssignModal(id, name) {
 window.openAssignModal = openAssignModal;
 
 async function submitAssign() {
+    console.log("Submit Assign Triggered");
     const waitlistId = document.getElementById('assign-id').value;
-    const stationId = document.getElementById('assign-station-select').value;
+    const stationSelect = document.getElementById('assign-station-select');
+    const stationId = stationSelect.value;
     
-    if(!stationId) return;
+    if(!stationId || stationSelect.options[stationSelect.selectedIndex].disabled) {
+        alert("Please select a valid Available Terminal.");
+        return;
+    }
 
     // Get name text and strip prefix
     const nameText = document.getElementById('assign-name').textContent;
-    const name = nameText.replace('CUSTOMER: ', '');
+    const name = nameText.replace('CUSTOMER: ', '').trim(); // Added trim
     
-    const res = await fetch('../api/stations.php?action=start', {
-        method: 'POST',
-        body: JSON.stringify({ station_id: stationId, customer_name: name })
-    });
-    const json = await res.json();
-    
-    if(json.success) {
-        // Mark fulfilled
-        await fetch('../api/waitlist.php?action=fulfill', {
+    // UI Feedback
+    const btn = document.querySelector('#assignForm button[type="submit"]');
+    const originalText = btn.textContent;
+    btn.textContent = "Assigning...";
+    btn.disabled = true;
+
+    try {
+        console.log(`Assigning ${name} to Station ${stationId}...`);
+        
+        const res = await fetch('../api/computers.php?action=start', {
             method: 'POST',
-            body: JSON.stringify({ id: waitlistId })
+            body: JSON.stringify({ station_id: stationId, customer_name: name })
         });
         
-        document.getElementById('assignModal').classList.add('hidden');
-        window.location.href = 'dashboard.php'; 
-    } else {
-        alert(json.message);
+        const json = await res.json();
+        console.log("Assign Response:", json);
+        
+        if(json.success) {
+            // Mark fulfilled
+            await fetch('../api/waitlist.php?action=fulfill', {
+                method: 'POST',
+                body: JSON.stringify({ id: waitlistId })
+            });
+            
+            document.getElementById('assignModal').classList.add('hidden');
+            window.location.href = 'dashboard.php'; 
+        } else {
+            alert("Failed to assign: " + json.message);
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    } catch(e) {
+        console.error(e);
+        alert("Network Error: " + e.message);
+        btn.textContent = originalText;
+        btn.disabled = false;
     }
 }
 window.submitAssign = submitAssign;

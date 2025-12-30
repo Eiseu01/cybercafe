@@ -172,13 +172,7 @@
     <footer id="footer" class="border-t border-white/5 bg-slate-900 pt-20 pb-10">
         <div class="max-w-7xl mx-auto px-6 text-center">
             <h2 class="text-3xl font-bold text-white font-['Orbitron'] tracking-[0.3em] mb-4 opacity-50 hover:opacity-100 transition-opacity cursor-default">NEXUS</h2>
-            <p class="text-gray-600 text-xs font-mono uppercase tracking-widest mb-10">Cybercafe Solutions • 2025 • Ace John Nieva</p>
-            
-            <div class="flex justify-center space-x-8 text-gray-500">
-                <a href="#" class="hover:text-cyan-400 transition-colors transform hover:scale-125"><i class="fab fa-discord text-xl"></i></a>
-                <a href="#" class="hover:text-cyan-400 transition-colors transform hover:scale-125"><i class="fab fa-twitter text-xl"></i></a>
-                <a href="#" class="hover:text-cyan-400 transition-colors transform hover:scale-125"><i class="fab fa-github text-xl"></i></a>
-            </div>
+            <p class="text-gray-600 text-xs font-mono uppercase tracking-widest mb-10">© 2025, Nieva Ace John</p>
         </div>
     </footer>
 

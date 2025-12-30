@@ -23,6 +23,14 @@ if ($method === 'POST') {
     if ($action === 'add') {
         $name = $input['customer_name'] ?? '';
         if ($name) {
+            // Duplicate Check
+            $check = $pdo->prepare("SELECT id FROM waitlist WHERE customer_name = ? AND status IN ('Waiting', 'Notified')");
+            $check->execute([$name]);
+            if($check->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Customer is already in the queue.']);
+                exit;
+            }
+
             $stmt = $pdo->prepare("INSERT INTO waitlist (customer_name) VALUES (?)");
             $stmt->execute([$name]);
             echo json_encode(['success' => true, 'message' => 'Added to waitlist']);

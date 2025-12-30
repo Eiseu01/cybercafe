@@ -6,6 +6,12 @@ let timerInterval;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Clear stats immediately to prevent stale data flash
+    const statIds = ['stat-occupied', 'stat-available', 'stat-maintenance', 'stat-waiting', 'stat-revenue'];
+    statIds.forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).textContent = '--';
+    });
+
     fetchComputers();
     fetchDashboardStats();
     
@@ -48,10 +54,13 @@ async function fetchDashboardStats() {
                 growthEl.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(growth)}%`;
             }
 
-            // 2. Bar widths (Visual only, as numbers come from fetchComputers for realtime accuracy, but this is fine helper)
-            // Actually fetchComputers handles the numbers. Lets just update bars if fetchComputers hasn't? 
-            // Better to let fetchComputers update numbers and this update bars OR sync them.
-            // Let's use stats data for bars
+            // 2. Counts
+            if(document.getElementById('stat-occupied')) document.getElementById('stat-occupied').textContent = data.pc_occupied;
+            if(document.getElementById('stat-available')) document.getElementById('stat-available').textContent = data.pc_available;
+            if(document.getElementById('stat-maintenance')) document.getElementById('stat-maintenance').textContent = data.pc_maintenance;
+            if(document.getElementById('stat-waiting')) document.getElementById('stat-waiting').textContent = data.waitlist_count !== undefined ? data.waitlist_count : '--';
+
+            // Bar widths (Visual only)
             const occPct = (data.pc_occupied / data.pc_total) * 100;
             const avlPct = (data.pc_available / data.pc_total) * 100;
             
@@ -62,7 +71,7 @@ async function fetchDashboardStats() {
             const feedContainer = document.getElementById('feed-container');
             if (feedContainer && data.recent_transactions) {
                 feedContainer.innerHTML = data.recent_transactions.map(tx => `
-                    <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-white/5 hover:bg-cyan-900/10 transition group">
+                    <div class="flex items-center justify-between py-3 px-3 bg-slate-800/50 rounded border border-white/5 hover:bg-cyan-900/10 transition group">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded bg-cyan-900/40 flex items-center justify-center text-cyan-400 border border-cyan-500/30 group-hover:shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                                 <i class="fas fa-receipt text-xs"></i>
@@ -88,7 +97,7 @@ async function fetchDashboardStats() {
                     if(i===2) rankColor = "bg-amber-700/20 text-amber-600 border border-amber-700/30";
 
                     return `
-                    <div class="flex items-center justify-between py-2 px-2 hover:bg-white/[0.02] rounded transition">
+                    <div class="flex items-center justify-between py-3 px-2 hover:bg-white/[0.02] rounded transition">
                         <div class="flex items-center space-x-3">
                             <div class="${rankColor} font-bold w-6 h-6 rounded flex items-center justify-center text-[10px] font-mono shadow-inner">#${i+1}</div>
                             <img src="https://ui-avatars.com/api/?name=${c.customer_name}&background=random&color=fff&size=32" class="rounded w-6 h-6 opacity-80 border border-white/10">
@@ -347,20 +356,25 @@ function updateTimers() {
 }
 
 function updateStats() {
-    const total = computers.length;
-    let occ = 0;
-    computers.forEach(pc => { if(pc.status === 'Occupied') occ++; });
-    
-    if(document.getElementById('stat-available')) 
-        document.getElementById('stat-available').textContent = (total - occ);
-    if(document.getElementById('stat-occupied'))
-        document.getElementById('stat-occupied').textContent = occ;
+    // Rely solely on server-side stats to prevent conflicts/fake data
+    fetchDashboardStats();
 }
+
+// Also update fetchDashboardStats to map the explicit keys from API
+// Replacing the relevant block inside fetchDashboardStats
+/* 
+    ... inside fetchDashboardStats ...
+    // 2. Counts
+    if(document.getElementById('stat-occupied')) document.getElementById('stat-occupied').textContent = data.pc_occupied;
+    if(document.getElementById('stat-available')) document.getElementById('stat-available').textContent = data.pc_available;
+    if(document.getElementById('stat-maintenance')) document.getElementById('stat-maintenance').textContent = data.pc_maintenance;
+    if(document.getElementById('stat-waiting')) document.getElementById('stat-waiting').textContent = data.waitlist_count;
+*/
 
 // Modals
 function openStartModal(id, name) {
     document.getElementById('start-station-id').value = id;
-    document.getElementById('modal-station-name').textContent = `TARGET: ${name}`;
+    document.getElementById('modal-station-name').textContent = `PC Name: ${name}`;
     document.getElementById('startModal').classList.remove('hidden');
     document.getElementById('start-customer').focus();
 }

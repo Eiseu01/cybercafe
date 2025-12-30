@@ -41,68 +41,41 @@
 
     <!-- Main Content -->
     <div class="pt-40 pb-20 px-6 min-h-screen flex items-center justify-center">
-        <div class="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-12">
+        <!-- Contact Info Only (Centered) -->
+        <div class="max-w-2xl w-full bg-slate-900/50 p-10 rounded-3xl border border-cyan-500/20 backdrop-blur-md shadow-[0_0_50px_rgba(6,182,212,0.1)]">
             
-            <!-- Info Side -->
-            <div>
-                <h1 class="text-5xl font-bold text-white font-['Orbitron'] mb-6 tracking-wide">CONTACT US</h1>
-                <p class="text-gray-400 mb-10 text-lg">Have a question? Suggestion? Or just want to reserve a computer? Message us!</p>
-                
-                <div class="space-y-6">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-10 h-10 rounded bg-cyan-900/40 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
-                            <i class="fas fa-map-marker-alt"></i>
-                        </div>
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Location</div>
-                            <div class="text-white">Cyber City, Tech Avenue 101</div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center space-x-4">
-                        <div class="w-10 h-10 rounded bg-purple-900/40 flex items-center justify-center text-purple-400 border border-purple-500/20">
-                            <i class="fas fa-envelope"></i>
-                        </div>
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Email Support</div>
-                            <div class="text-white">support@nexuscafe.com</div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center space-x-4">
-                        <div class="w-10 h-10 rounded bg-emerald-900/40 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-                            <i class="fas fa-phone"></i>
-                        </div>
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Phone</div>
-                            <div class="text-white">+63 912 345 6789</div>
-                        </div>
-                    </div>
-                </div>
+            <div class="text-center mb-12">
+                <h1 class="text-5xl font-bold text-white font-['Orbitron'] mb-6 tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">CONTACT US</h1>
+                <p class="text-gray-400 text-lg">Have a question or want to reserve a computer? Reach out to us directly.</p>
             </div>
-
-            <!-- Form Side -->
-            <div class="glass-panel p-8 rounded-2xl shadow-xl border-t border-cyan-500/20">
-                <form onsubmit="event.preventDefault(); alert('Message sent! We will reply soon.');">
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-cyan-500 uppercase tracking-widest mb-2">Your Name</label>
-                        <input type="text" class="input-cyber w-full p-3 rounded" placeholder="John Doe" required>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Location -->
+                <div class="flex flex-col items-center text-center p-4 hover:bg-white/5 rounded-xl transition-colors group">
+                    <div class="w-14 h-14 rounded-full bg-cyan-900/30 flex items-center justify-center text-cyan-400 border border-cyan-500/30 mb-4 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                        <i class="fas fa-map-marker-alt text-xl"></i>
                     </div>
+                    <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Location</div>
+                    <div class="text-white font-medium">Baliwasan, Zamboanga City</div>
+                </div>
 
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-cyan-500 uppercase tracking-widest mb-2">Email Address</label>
-                        <input type="email" class="input-cyber w-full p-3 rounded" placeholder="john@example.com" required>
+                <!-- Email -->
+                <div class="flex flex-col items-center text-center p-4 hover:bg-white/5 rounded-xl transition-colors group">
+                    <div class="w-14 h-14 rounded-full bg-purple-900/30 flex items-center justify-center text-purple-400 border border-purple-500/30 mb-4 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                        <i class="fas fa-envelope text-xl"></i>
                     </div>
+                    <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Email Support</div>
+                    <div class="text-white font-medium">ace@support.com</div>
+                </div>
 
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-cyan-500 uppercase tracking-widest mb-2">Message</label>
-                        <textarea class="input-cyber w-full p-3 rounded h-32" placeholder="Start typing..." required></textarea>
+                <!-- Phone -->
+                <div class="flex flex-col items-center text-center p-4 hover:bg-white/5 rounded-xl transition-colors group">
+                    <div class="w-14 h-14 rounded-full bg-emerald-900/30 flex items-center justify-center text-emerald-400 border border-emerald-500/30 mb-4 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                        <i class="fas fa-phone text-xl"></i>
                     </div>
-
-                    <button type="submit" class="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold rounded hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all font-['Orbitron'] tracking-widest">
-                        SEND MESSAGE
-                    </button>
-                </form>
+                    <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Phone</div>
+                    <div class="text-white font-medium">+63 912 345 6789</div>
+                </div>
             </div>
 
         </div>

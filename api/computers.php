@@ -10,7 +10,7 @@ $action = $_GET['action'] ?? '';
 // GET: Fetch all computers with current session details
 if ($method === 'GET') {
     try {
-        // Query against 'computers' table
+        // Query using LEFT JOIN on sessions (3NF compliant)
         $sql = "
             SELECT 
                 c.id, 
@@ -23,7 +23,8 @@ if ($method === 'GET') {
                 sess.total_price,
                 sess.hourly_rate as session_rate
             FROM computers c
-            LEFT JOIN sessions sess ON c.current_session_id = sess.id
+            LEFT JOIN sessions sess ON c.id = sess.computer_id AND sess.status = 'Active'
+            GROUP BY c.id
             ORDER BY c.id ASC
         ";
         
@@ -42,7 +43,7 @@ if ($method === 'GET') {
                 $pc['start_time'] = date('c', strtotime($pc['start_time']));
             }
             // Normalize rate output for frontend (use session rate if active, else default)
-            $pc['current_rate'] = $pc['session_rate'] ? floatval($pc['session_rate']) : floatval($pc['default_rate']);
+            $pc['current_rate'] = !empty($pc['session_rate']) ? floatval($pc['session_rate']) : floatval($pc['default_rate']);
         }
         
         echo json_encode([
@@ -70,8 +71,6 @@ if ($method === 'POST') {
         }
         
         try {
-            // Updated to insert into 'computers'
-            // Default rate set by DB schema (20.00)
             $stmt = $pdo->prepare("INSERT INTO computers (computer_name, status) VALUES (?, 'Available')");
             $stmt->execute([$name]);
             echo json_encode(['success' => true, 'message' => 'Computer added']);
@@ -105,13 +104,10 @@ if ($method === 'POST') {
                 $updPc = $pdo->prepare("UPDATE computers SET hourly_rate = ? WHERE id = ?");
                 $updPc->execute([$rate, $id]);
                 
-                // B. Update Active Session Rate (if exists)
-                $chk = $pdo->query("SELECT current_session_id FROM computers WHERE id = $id");
-                $pc = $chk->fetch();
-                if ($pc && $pc['current_session_id']) {
-                    $updSess = $pdo->prepare("UPDATE sessions SET hourly_rate = ? WHERE id = ?");
-                    $updSess->execute([$rate, $pc['current_session_id']]);
-                }
+                // B. Update Active Session Rate (if exists) via JOIN lookup
+                // 3NF Fix: Find active session via sessions table, not current_session_id
+                $updSess = $pdo->prepare("UPDATE sessions SET hourly_rate = ? WHERE computer_id = ? AND status = 'Active'");
+                $updSess->execute([$rate, $id]);
             }
             
             // 3. Update Status (Only if provided and NOT Occupied)
@@ -179,7 +175,9 @@ if ($method === 'POST') {
 
             $stmt = $pdo->prepare("CALL StartSession(?, ?)");
             $stmt->execute([$id, $customer]);
-            echo json_encode(['success' => true, 'message' => 'Session started']);
+            // Fetch the new session ID created by the proceudre
+            $res = $stmt->fetch(); 
+            echo json_encode(['success' => true, 'message' => 'Session started', 'session_id' => $res['session_id'] ?? null]);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
         }

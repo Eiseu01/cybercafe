@@ -8,7 +8,6 @@ try {
     $stats = [];
     
     // 1. Revenue Stats (Today vs Yesterday)
-    // We can use the view v_DailyRevenue or raw queries. Raw is flexible.
     $today = date('Y-m-d');
     $yesterday = date('Y-m-d', strtotime('-1 day'));
     
@@ -32,44 +31,27 @@ try {
         $stats['revenue_growth'] = $stats['revenue_today'] > 0 ? 100 : 0;
     }
 
-    // 2. Utilization
-    // Subquery Requirement: Count sessions with value > Average
-    $stmtSub = $pdo->query("SELECT COUNT(*) FROM transactions WHERE amount > (SELECT AVG(amount) FROM transactions)");
-    $stats['high_value_count'] = $stmtSub->fetchColumn();
-
+    // 2. Computers Status Counts
     $res = $pdo->query("SELECT status, COUNT(*) as cnt FROM computers GROUP BY status");
-    $statuses = $res->fetchAll(PDO::FETCH_KEY_PAIR); // ['Available' => 5, 'Occupied' => 3]
+    $statuses = $res->fetchAll(PDO::FETCH_KEY_PAIR); // ['Available' => 5, 'Occupied' => 3, 'Maintenance' => 1]
     
-    $total = array_sum($statuses);
+    // Ensure all keys exist
     $occupied = $statuses['Occupied'] ?? 0;
-    $available = $statuses['Available'] ?? 0;
+    $available = $statuses['Available'] ?? 0; // "Available" status in DB means it is NOT in Maintenance
     $maintenance = $statuses['Maintenance'] ?? 0;
     
-    $stats['utilization_rate'] = $total > 0 ? round(($occupied / $total) * 100) : 0;
+    $total = $occupied + $available + $maintenance;
+    
     $stats['pc_total'] = $total;
     $stats['pc_occupied'] = $occupied;
-    $stats['pc_available'] = $available;
+    $stats['pc_available'] = $available; // Explicitly just 'Available' ones
     $stats['pc_maintenance'] = $maintenance;
-
-    // 3. Recent Activity Feed (Limit 5)
-    // Show sessions that started recently or transactions
-    $sql = "
-        SELECT 
-            'session_start' as type,
-            s.start_time as time,
-            s.customer_name,
-            c.computer_name as resource,
-            NULL as amount
-        FROM sessions s
-        JOIN computers c ON s.computer_id = c.id
-        WHERE s.end_time IS NULL
-        ORDER BY s.start_time DESC LIMIT 5
-    ";
-    // Combine with transactions? Or just list recent Actions
-    // Let's do a simple UNION if we want mixed feed, or just "Recent Sessions"
-    // For simplicity and "Live" feel, let's show Active Sessions + Recent Transactions
     
-    // Actually, let's just get recent TRANSACTIONS for the feed (Completed payments)
+    // 3. Waitlist Count (Dynamic)
+    $stmtWait = $pdo->query("SELECT COUNT(*) FROM waitlist WHERE status = 'Waiting'");
+    $stats['waitlist_count'] = $stmtWait->fetchColumn();
+
+    // 4. Recent Transactions (Feed)
     $stmt = $pdo->query("
         SELECT 
             t.payment_time as time,
@@ -80,18 +62,18 @@ try {
         JOIN sessions s ON t.session_id = s.id
         LEFT JOIN computers c ON s.computer_id = c.id
         ORDER BY t.payment_time DESC
-        LIMIT 5
+        LIMIT 10
     ");
     $stats['recent_transactions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 4. Top Customers (All Time or Monthly) - "Hall of Fame"
+    // 5. Elite Users
     $stmt = $pdo->query("
         SELECT customer_name, SUM(amount) as total_spent, COUNT(*) as visits
         FROM transactions t
         JOIN sessions s ON t.session_id = s.id
         GROUP BY customer_name
         ORDER BY total_spent DESC
-        LIMIT 5
+        LIMIT 10
     ");
     $stats['top_customers'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

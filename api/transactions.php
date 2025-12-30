@@ -14,8 +14,8 @@ try {
     $params = [];
     $conditions = [];
 
-    // 1. Date Filter (Default: Today)
-    $dateFilter = $_GET['date'] ?? date('Y-m-d');
+    // 1. Date Filter (Default: All)
+    $dateFilter = $_GET['date'] ?? 'all';
     
     // If user explicitly asks for 'all', we skip the date condition
     if ($dateFilter !== 'all') {

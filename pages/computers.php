@@ -65,18 +65,18 @@ require_once '../includes/auth_check.php';
     <!-- Start Session Modal -->
     <div id="startModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="glass-panel w-96 p-8 relative border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.15)]">
-            <h3 class="text-xl font-bold mb-2 text-white font-['Orbitron'] tracking-wider">Initialize Session</h3>
-            <p class="text-xs text-cyan-400 font-mono mb-8" id="modal-station-name">TARGET: STATION --</p>
+            <h3 class="text-xl font-bold mb-2 text-white font-['Orbitron'] tracking-wider">Start Session</h3>
+            <p class="text-xs text-cyan-400 font-mono mb-8" id="modal-station-name">PC Name: --</p>
             
             <form id="startForm">
                 <input type="hidden" id="start-station-id">
-                <label class="block mb-2 text-[10px] text-cyan-500 font-bold uppercase tracking-widest font-mono">Customer Identity</label>
-                <input type="text" id="start-customer" class="input-field mb-8" required placeholder="ENTER_ID">
+                <label class="block mb-2 text-[10px] text-cyan-500 font-bold uppercase tracking-widest font-mono">Customer Name</label>
+                <input type="text" id="start-customer" class="input-field mb-8" required placeholder="Enter Name">
                 
                 <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeModal('startModal')" class="btn btn-secondary text-xs">Abort</button>
+                    <button type="button" onclick="closeModal('startModal')" class="btn btn-secondary text-xs">Cancel</button>
                     <button type="submit" class="btn btn-primary text-xs">
-                        Execute
+                        Start
                     </button>
                 </div>
             </form>

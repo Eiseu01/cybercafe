@@ -24,34 +24,37 @@ CREATE TABLE IF NOT EXISTS rates (
 -- Insert Default Rate
 INSERT IGNORE INTO rates (rate_name, price_per_hour) VALUES ('Standard', 20.00);
 
--- 3. Stations Table
-CREATE TABLE IF NOT EXISTS stations (
+-- 3. Computers Table (Renamed from Stations)
+CREATE TABLE IF NOT EXISTS computers (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    station_name VARCHAR(50) NOT NULL UNIQUE,
-    status ENUM('Available', 'Occupied', 'Maintenance') NOT NULL DEFAULT 'Available',
-    current_session_id INT DEFAULT NULL
+    computer_name VARCHAR(50) NOT NULL UNIQUE,
+    hourly_rate DECIMAL(10, 2) NOT NULL DEFAULT 20.00,
+    status ENUM('Available', 'Occupied', 'Maintenance') NOT NULL DEFAULT 'Available'
+    -- 3NF Fix: Removed current_session_id (derived from sessions table)
 );
 
--- Seed Stations (10 Stations)
-INSERT IGNORE INTO stations (station_name) VALUES 
+-- Seed Computers (10 units)
+INSERT IGNORE INTO computers (computer_name) VALUES 
 ('PC-01'), ('PC-02'), ('PC-03'), ('PC-04'), ('PC-05'),
 ('PC-06'), ('PC-07'), ('PC-08'), ('PC-09'), ('PC-10');
 
 -- 4. Sessions Table
 CREATE TABLE IF NOT EXISTS sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    station_id INT NOT NULL,
+    computer_id INT NOT NULL, -- Renamed from station_id
     customer_name VARCHAR(100),
     start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     end_time DATETIME NULL,
+    hourly_rate DECIMAL(10, 2) NOT NULL DEFAULT 20.00, -- Snapshot rate
     total_price DECIMAL(10, 2) DEFAULT 0.00,
     status ENUM('Active', 'Completed') NOT NULL DEFAULT 'Active',
-    FOREIGN KEY (station_id) REFERENCES stations(id)
+    FOREIGN KEY (computer_id) REFERENCES computers(id)
 );
 
 -- Index for performance
 CREATE INDEX idx_session_start ON sessions(start_time);
 CREATE INDEX idx_session_status ON sessions(status);
+CREATE INDEX idx_session_computer ON sessions(computer_id);
 
 -- 5. Transactions Table
 CREATE TABLE IF NOT EXISTS transactions (
@@ -86,19 +89,13 @@ BEGIN
     DECLARE fee DECIMAL(10,2);
     DECLARE rounded_fee DECIMAL(10,2);
     
-    -- Calculate difference in hours (including partials)
-    -- TIMESTAMPDIFF(MINUTE) returns full minutes (floored)
     SET hours = TIMESTAMPDIFF(MINUTE, start_dt, end_dt) / 60.0;
     
-    -- Minimum charge rule (optional, essentially 0 logic)
     IF hours < 0 THEN 
         SET hours = 0;
     END IF;
     
-    -- Base calculation
     SET fee = hours * rate;
-    
-    -- Rounding to nearest 0.25
     SET rounded_fee = ROUND(fee * 4) / 4;
     
     RETURN ROUND(rounded_fee, 2);
@@ -108,26 +105,27 @@ DELIMITER ;
 -- B. Stored Procedure: Start Session
 DROP PROCEDURE IF EXISTS StartSession;
 DELIMITER //
-CREATE PROCEDURE StartSession(IN p_station_id INT, IN p_customer_name VARCHAR(100))
+CREATE PROCEDURE StartSession(IN p_computer_id INT, IN p_customer_name VARCHAR(100))
 BEGIN
-    DECLARE v_station_status VARCHAR(20);
+    DECLARE v_status VARCHAR(20);
+    DECLARE v_rate DECIMAL(10, 2);
     
-    -- Check if station is available
-    SELECT status INTO v_station_status FROM stations WHERE id = p_station_id;
+    -- Check if computer is available
+    SELECT status, hourly_rate INTO v_status, v_rate FROM computers WHERE id = p_computer_id;
     
-    IF v_station_status = 'Available' THEN
+    IF v_status = 'Available' THEN
         -- Insert new session
-        INSERT INTO sessions (station_id, customer_name, start_time, status)
-        VALUES (p_station_id, p_customer_name, NOW(), 'Active');
+        INSERT INTO sessions (computer_id, customer_name, start_time, hourly_rate, status)
+        VALUES (p_computer_id, p_customer_name, NOW(), v_rate, 'Active');
         
-        -- Update station status
-        UPDATE stations 
-        SET status = 'Occupied', current_session_id = LAST_INSERT_ID()
-        WHERE id = p_station_id;
+        -- Update computer status
+        UPDATE computers 
+        SET status = 'Occupied'
+        WHERE id = p_computer_id;
         
         SELECT 'Success' AS message, LAST_INSERT_ID() as session_id;
     ELSE
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Station is not available';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Computer is not available';
     END IF;
 END //
 DELIMITER ;
@@ -141,16 +139,13 @@ BEGIN
     DECLARE v_end_time DATETIME;
     DECLARE v_rate DECIMAL(10,2);
     DECLARE v_fee DECIMAL(10,2);
-    DECLARE v_station_id INT;
+    DECLARE v_computer_id INT;
     
     -- Get session details
-    SELECT start_time, station_id INTO v_start_time, v_station_id 
+    SELECT start_time, hourly_rate, computer_id INTO v_start_time, v_rate, v_computer_id 
     FROM sessions WHERE id = p_session_id;
     
     SET v_end_time = NOW();
-    
-    -- Get Standard Rate (Assuming ID 1 for now, or fetch latest)
-    SELECT price_per_hour INTO v_rate FROM rates LIMIT 1;
     
     -- Calculate Fee
     SET v_fee = CalculateRentalFee(v_start_time, v_end_time, v_rate);
@@ -160,26 +155,16 @@ BEGIN
     SET end_time = v_end_time, total_price = v_fee, status = 'Completed'
     WHERE id = p_session_id;
     
-    -- Update Station Status
-    UPDATE stations 
-    SET status = 'Available', current_session_id = NULL 
-    WHERE id = v_station_id;
+    -- Update Computer Status
+    UPDATE computers 
+    SET status = 'Available'
+    WHERE id = v_computer_id;
     
     SELECT v_fee AS total_fee;
 END //
 DELIMITER ;
 
--- D. Trigger: After Session Ends (Auto-create Transaction Record)
--- Note: Some instructors prefer manual payment transaction creation. 
--- We'll create a trigger that logs it automatically for "Pay on End" model, 
--- or we can leave it to the application.
--- Let's use a trigger to log an audit or just default transaction if not paid separately.
--- For this requirement "Trigger", let's create an Audit log or update stats.
--- actually, the requirement asks for a Trigger. 
--- Let's create a trigger that moves Completed sessions to a 'transactions' table if not already handled?
--- Better: Trigger to Auto-Cancelled Waitlist if too old? No.
--- Let's do: When a session completes, insert into transactions automatically (Assuming cash payment at end).
-
+-- D. Trigger: After Session Ends
 DROP TRIGGER IF EXISTS AfterSessionComplete;
 DELIMITER //
 CREATE TRIGGER AfterSessionComplete
@@ -202,18 +187,13 @@ SELECT
 FROM transactions
 GROUP BY DATE(payment_time);
 
--- F. View: Current Shop Status
+-- F. View: Current Shop Status (Fixed & 3NF)
 CREATE OR REPLACE VIEW v_CurrentShopStatus AS
 SELECT 
-    s.station_name,
-    s.status,
-    sess.customer_name,
-    sess.start_time,
-    TIMESTAMPDIFF(MINUTE, sess.start_time, NOW()) AS duration_minutes
-FROM stations s
-LEFT JOIN sessions sess ON s.current_session_id = sess.id;
-
--- G. Subquery Example (Used in Analytics)
--- "Find customers who spent more than average"
--- SELECT customer_name FROM sessions WHERE total_price > (SELECT AVG(total_price) FROM sessions);
-
+    c.computer_name,
+    c.status,
+    s.customer_name,
+    s.start_time,
+    TIMESTAMPDIFF(MINUTE, s.start_time, NOW()) AS duration_minutes
+FROM computers c
+LEFT JOIN sessions s ON c.id = s.computer_id AND s.status = 'Active';

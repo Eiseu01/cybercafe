@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS waitlist (
 
 -- A. Stored Function: CalculateRentalFee
 DROP FUNCTION IF EXISTS CalculateRentalFee;
+DELIMITER $$
 CREATE FUNCTION CalculateRentalFee(start_dt DATETIME, end_dt DATETIME, rate DECIMAL(10,2)) 
 RETURNS DECIMAL(10,2)
 DETERMINISTIC
@@ -98,10 +99,12 @@ BEGIN
     SET rounded_fee = ROUND(fee * 4) / 4;
     
     RETURN ROUND(rounded_fee, 2);
-END;
+END$$
+DELIMITER ;
 
 -- B. Stored Procedure: StartSession
 DROP PROCEDURE IF EXISTS StartSession;
+DELIMITER $$
 CREATE PROCEDURE StartSession(IN p_computer_id INT, IN p_customer_name VARCHAR(100))
 BEGIN
     DECLARE v_status VARCHAR(20);
@@ -124,10 +127,12 @@ BEGIN
     ELSE
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Computer is not available';
     END IF;
-END;
+END$$
+DELIMITER ;
 
 -- C. Stored Procedure: EndSession
 DROP PROCEDURE IF EXISTS EndSession;
+DELIMITER $$
 CREATE PROCEDURE EndSession(IN p_session_id INT)
 BEGIN
     DECLARE v_start_time DATETIME;
@@ -156,10 +161,12 @@ BEGIN
     WHERE id = v_computer_id;
     
     SELECT v_fee AS total_fee;
-END;
+END$$
+DELIMITER ;
 
 -- D. Trigger: AfterSessionComplete
 DROP TRIGGER IF EXISTS AfterSessionComplete;
+DELIMITER $$
 CREATE TRIGGER AfterSessionComplete
 AFTER UPDATE ON sessions
 FOR EACH ROW
@@ -168,7 +175,8 @@ BEGIN
         INSERT INTO transactions (session_id, amount, payment_method, payment_time)
         VALUES (NEW.id, NEW.total_price, 'Cash', NOW());
     END IF;
-END;
+END$$
+DELIMITER ;
 
 -- E. View: Daily Revenue
 CREATE OR REPLACE VIEW v_DailyRevenue AS

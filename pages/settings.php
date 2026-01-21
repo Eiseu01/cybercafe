@@ -1,5 +1,11 @@
 <?php
 require_once '../includes/auth_check.php';
+
+// Restrict to Admin Only
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {
+    header("Location: dashboard.php");
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

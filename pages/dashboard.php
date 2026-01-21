@@ -132,6 +132,9 @@ require_once '../includes/auth_check.php';
         </div>
     </main>
 
+    <script>
+        const USER_ROLE = "<?php echo isset($_SESSION['role']) ? addslashes($_SESSION['role']) : 'Staff'; ?>".toLowerCase(); // 'admin' or 'staff'
+    </script>
     <script src="../assets/js/dashboard.js"></script>
 </body>
 </html>

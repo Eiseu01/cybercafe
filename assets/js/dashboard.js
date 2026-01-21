@@ -211,7 +211,7 @@ function renderComputers() {
         let adminTopControls = '';
         let adminBottomBtn = '';
         
-        if (typeof USER_ROLE !== 'undefined') { // Show for all roles as requested
+        if (typeof USER_ROLE !== 'undefined' && (USER_ROLE === 'admin' || USER_ROLE === 'Admin')) { // Show for admin only
             adminTopControls = `
             <div class="mr-2">
                 <button onclick="openDeleteComputerModal(${pc.id}, '${escapeHtml(pc.computer_name)}')" class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer" title="Delete Terminal">

@@ -4,6 +4,17 @@ let currentRate = 20.00; // Default fallback if API fails
 let serverTimeOffset = 0; 
 let timerInterval;
 
+// XSS Protection Helper
+function escapeHtml(text) {
+    if (!text) return text;
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Clear stats immediately to prevent stale data flash
@@ -29,6 +40,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wire up events
     const startForm = document.getElementById('startForm');
     if(startForm) startForm.addEventListener('submit', handleStartSubmit);
+
+    // Mobile Sidebar Toggle
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (mobileBtn && sidebar) {
+        mobileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('-translate-x-full');
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (!sidebar.contains(e.target) && !mobileBtn.contains(e.target) && !sidebar.classList.contains('-translate-x-full')) {
+               sidebar.classList.add('-translate-x-full');
+            }
+        });
+    }
 });
 
 async function fetchDashboardStats() {
@@ -45,15 +74,6 @@ async function fetchDashboardStats() {
             const revEl = document.getElementById('stat-revenue');
             if (revEl) revEl.textContent = '₱' + parseFloat(data.revenue_today).toLocaleString(undefined, {minimumFractionDigits: 2});
             
-            const growthEl = document.getElementById('stat-growth');
-            if (growthEl) {
-                const growth = data.revenue_growth;
-                const color = growth >= 0 ? 'text-emerald-400' : 'text-red-400';
-                const icon = growth >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
-                growthEl.className = `text-xs font-bold ${color}`;
-                growthEl.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(growth)}%`;
-            }
-
             // 2. Counts
             if(document.getElementById('stat-occupied')) document.getElementById('stat-occupied').textContent = data.pc_occupied;
             if(document.getElementById('stat-available')) document.getElementById('stat-available').textContent = data.pc_available;
@@ -70,15 +90,17 @@ async function fetchDashboardStats() {
             // 3. Feed
             const feedContainer = document.getElementById('feed-container');
             if (feedContainer && data.recent_transactions) {
-                feedContainer.innerHTML = data.recent_transactions.map(tx => `
-                    <div class="flex items-center justify-between py-3 px-3 bg-slate-800/50 rounded border border-white/5 hover:bg-cyan-900/10 transition group">
+                // Slice to top 8 to fit perfectly no scroll
+                const limitedTx = data.recent_transactions.slice(0, 8);
+                feedContainer.innerHTML = limitedTx.map(tx => `
+                    <div class="flex-1 flex items-center justify-between px-3 bg-slate-800/50 rounded border border-white/5 hover:bg-cyan-900/10 transition group mb-1 last:mb-0 min-h-[40px]">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded bg-cyan-900/40 flex items-center justify-center text-cyan-400 border border-cyan-500/30 group-hover:shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                                 <i class="fas fa-receipt text-xs"></i>
                             </div>
                             <div>
-                                <div class="text-xs text-white font-bold font-mono tracking-wide uppercase">${tx.customer_name}</div>
-                                <div class="text-[10px] text-cyan-500/50 font-mono">${tx.computer_name || 'COUNTER'} • ${new Date(tx.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                <div class="text-xs text-white font-bold font-mono tracking-wide uppercase">${escapeHtml(tx.customer_name)}</div>
+                                <div class="text-[10px] text-cyan-500/50 font-mono">${escapeHtml(tx.computer_name || 'COUNTER')} • ${new Date(tx.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                             </div>
                         </div>
                         <div class="text-cyan-400 font-bold text-xs font-mono tracking-widest">+₱${parseFloat(tx.amount).toFixed(2)}</div>
@@ -97,15 +119,14 @@ async function fetchDashboardStats() {
                     if(i===2) rankColor = "bg-amber-700/20 text-amber-600 border border-amber-700/30";
 
                     return `
-                    <div class="flex items-center justify-between py-3 px-2 hover:bg-white/[0.02] rounded transition">
+                    <div class="flex-1 flex items-center justify-between px-2 hover:bg-white/[0.02] transition border-b border-white/5 last:border-0 min-h-[40px]">
                         <div class="flex items-center space-x-3">
-                            <div class="${rankColor} font-bold w-6 h-6 rounded flex items-center justify-center text-[10px] font-mono shadow-inner">#${i+1}</div>
-                            <img src="https://ui-avatars.com/api/?name=${c.customer_name}&background=random&color=fff&size=32" class="rounded w-6 h-6 opacity-80 border border-white/10">
-                            <span class="text-xs text-gray-300 font-bold tracking-wide uppercase font-mono">${c.customer_name}</span>
+                            <div class="${rankColor} font-bold w-6 h-6 rounded flex items-center justify-center text-[10px] font-mono shadow-inner shrink-0">#${i+1}</div>
+                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.customer_name)}&background=random&color=fff&size=32" class="rounded w-6 h-6 opacity-80 border border-white/10 shrink-0">
+                            <span class="text-xs text-gray-300 font-bold tracking-wide uppercase font-mono truncate max-w-[100px]">${escapeHtml(c.customer_name)}</span>
                         </div>
-                        <div class="text-cyan-500 text-xs font-bold font-mono tracking-widest">₱${parseFloat(c.total_spent).toLocaleString()}</div>
+                        <div class="text-cyan-500 text-xs font-bold font-mono tracking-widest shrink-0">₱${parseFloat(c.total_spent).toLocaleString()}</div>
                     </div>
-                    <div class="h-px bg-white/5 w-full my-1"></div>
                 `}).join('');
             }
         }
@@ -168,9 +189,14 @@ function renderComputers() {
         if (existingCard) {
             const currentStatus = existingCard.dataset.status;
             const currentCustomer = existingCard.dataset.customer;
-            // If status is same, and (if occupied) customer is same, we assume NO render needed
-            // The timer counts by itself.
-            if (currentStatus === pc.status) {
+            const currentName = existingCard.dataset.name;
+            const currentRate = parseFloat(existingCard.dataset.rate || 0);
+            
+            // Optimization: Only re-render if something meaningful changed
+            if (currentStatus === pc.status && 
+                currentName === pc.computer_name && 
+                Math.abs(currentRate - parseFloat(displayRate)) < 0.01) {
+                
                 if (pc.status === 'Occupied' && currentCustomer === pc.customer_name) {
                     shouldRender = false;
                 } else if (pc.status !== 'Occupied') {
@@ -188,14 +214,14 @@ function renderComputers() {
         if (typeof USER_ROLE !== 'undefined') { // Show for all roles as requested
             adminTopControls = `
             <div class="mr-2">
-                <button onclick="openDeleteComputerModal(${pc.id}, '${pc.computer_name}')" class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer" title="Delete Terminal">
+                <button onclick="openDeleteComputerModal(${pc.id}, '${escapeHtml(pc.computer_name)}')" class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer" title="Delete Terminal">
                     <i class="fas fa-trash-alt text-xs"></i>
                 </button>
             </div>`;
 
             // Blue Edit Button for footer
             adminBottomBtn = `
-                <button onclick="openEditComputerModal(${pc.id}, '${pc.computer_name}')" class="btn w-full mt-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/30 text-xs uppercase tracking-widest shadow-none transition-all">
+                <button onclick="openEditComputerModal(${pc.id}, '${escapeHtml(pc.computer_name)}')" class="btn w-full mt-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/30 text-xs uppercase tracking-widest shadow-none transition-all">
                     <i class="fas fa-cog mr-1"></i> Configure
                 </button>
             `;
@@ -234,7 +260,7 @@ function renderComputers() {
         
         if (pc.status === 'Available') {
             btnHtml = `
-                <button onclick="openStartModal(${pc.id}, '${pc.computer_name}')" 
+                <button onclick="openStartModal(${pc.id}, '${escapeHtml(pc.computer_name)}')" 
                     class="btn btn-secondary w-full justify-center group-hover:bg-brand-primary group-hover:text-white group-hover:border-transparent">
                     <i class="fas fa-power-off mr-1"></i> Start Session
                 </button>`;
@@ -242,11 +268,11 @@ function renderComputers() {
              userDisplay = `
                 <div class="flex items-center justify-center space-x-2 mb-4 bg-brand-primary/10 py-1.5 mx-6 rounded-lg">
                     <i class="fas fa-user-circle text-brand-primary"></i>
-                    <span class="text-sm font-medium text-gray-300 truncate max-w-[120px]">${pc.customer_name}</span>
+                    <span class="text-sm font-medium text-gray-300 truncate max-w-[120px]">${escapeHtml(pc.customer_name)}</span>
                 </div>
              `;
             btnHtml = `
-                <button onclick="endSession(${pc.session_id}, '${pc.customer_name}')" 
+                <button onclick="endSession(${pc.session_id}, '${escapeHtml(pc.customer_name)}')" 
                     class="btn btn-danger w-full justify-center bg-red-500/10 hover:bg-red-600 border-red-500/20 text-red-400 hover:text-white">
                     End Session
                 </button>`;
@@ -260,11 +286,11 @@ function renderComputers() {
         }
 
         const html = `
-            <div id="${cardId}" data-status="${pc.status}" data-customer="${pc.customer_name || ''}" class="${cardBase} ${statusColor}">
+            <div id="${cardId}" data-status="${pc.status}" data-customer="${escapeHtml(pc.customer_name || '')}" data-name="${escapeHtml(pc.computer_name)}" data-rate="${displayRate}" class="${cardBase} ${statusColor}">
                 
                 <!-- Card Header -->
                 <div class="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <h3 class="font-bold text-lg text-gray-300 tracking-wide">${pc.computer_name}</h3>
+                    <h3 class="font-bold text-lg text-gray-300 tracking-wide">${escapeHtml(pc.computer_name)}</h3>
                     <div class="flex items-center gap-2">
                         ${adminTopControls}
                         ${statusBadge}
@@ -359,17 +385,6 @@ function updateStats() {
     // Rely solely on server-side stats to prevent conflicts/fake data
     fetchDashboardStats();
 }
-
-// Also update fetchDashboardStats to map the explicit keys from API
-// Replacing the relevant block inside fetchDashboardStats
-/* 
-    ... inside fetchDashboardStats ...
-    // 2. Counts
-    if(document.getElementById('stat-occupied')) document.getElementById('stat-occupied').textContent = data.pc_occupied;
-    if(document.getElementById('stat-available')) document.getElementById('stat-available').textContent = data.pc_available;
-    if(document.getElementById('stat-maintenance')) document.getElementById('stat-maintenance').textContent = data.pc_maintenance;
-    if(document.getElementById('stat-waiting')) document.getElementById('stat-waiting').textContent = data.waitlist_count;
-*/
 
 // Modals
 function openStartModal(id, name) {

@@ -31,7 +31,7 @@ require_once '../includes/auth_check.php';
             <div class="flex items-center space-x-4">
                 <?php if(isset($_SESSION['role']) && $_SESSION['role'] === 'Admin'): ?>
                 <button onclick="openAddComputerModal()" class="btn btn-primary shadow-[0_0_10px_rgba(6,182,212,0.3)]">
-                    <i class="fas fa-plus"></i> <span>Deploy Node</span>
+                    <i class="fas fa-plus"></i> <span>Add Computer</span>
                 </button>
                 <?php endif; ?>
                 
@@ -53,7 +53,7 @@ require_once '../includes/auth_check.php';
                 <!-- Stations will be injected here via JS -->
                 <div id="initial-loader" class="col-span-full flex flex-col items-center justify-center py-20 text-cyan-500/30">
                     <i class="fas fa-circle-notch fa-spin text-4xl mb-4"></i>
-                    <p class="font-mono tracking-widest uppercase">Initializing Network...</p>
+                    <p class="font-mono tracking-widest uppercase">Loading Computers...</p>
                 </div>
             </div>
 
@@ -87,18 +87,18 @@ require_once '../includes/auth_check.php';
     <div id="stopConfirmModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="glass-panel w-96 p-8 relative border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.15)]">
              <div class="w-12 h-12 rounded-full bg-red-900/20 flex items-center justify-center text-red-500 mb-4 text-xl border border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] mx-auto">
-                 <i class="fas fa-skull"></i>
+                 <i class="fas fa-power-off"></i>
              </div>
-             <h3 class="text-xl font-bold mb-2 text-white text-center font-['Orbitron'] tracking-wider">Terminate Session?</h3>
+             <h3 class="text-xl font-bold mb-2 text-white text-center font-['Orbitron'] tracking-wider">End Session?</h3>
             <p class="text-xs text-center text-gray-400 font-mono mb-8">
-                Confirm termination for <span id="stop-customer-name" class="font-bold text-white"></span>. Connection will be severed.
+                Are you sure you want to end the session for <span id="stop-customer-name" class="font-bold text-white"></span>? Use "End Session" to stop the timer and calculate the bill.
             </p>
             <input type="hidden" id="stop-session-id">
             
             <div class="flex justify-center space-x-3">
                 <button onclick="closeModal('stopConfirmModal')" class="btn btn-secondary text-xs">Cancel</button>
                 <button onclick="processStopSession()" class="btn btn-danger text-xs">
-                    Terminate
+                    End Session
                 </button>
             </div>
         </div>
@@ -111,8 +111,8 @@ require_once '../includes/auth_check.php';
                 <i class="fas fa-check text-2xl"></i>
             </div>
             
-            <h3 class="text-xl font-bold mb-1 text-white font-['Orbitron'] tracking-wider">Session Complete</h3>
-            <p class="text-xs text-emerald-400/70 font-mono mb-8">TRANSACTION LOGGED</p>
+            <h3 class="text-xl font-bold mb-1 text-white font-['Orbitron'] tracking-wider">Session Ended</h3>
+            <p class="text-xs text-emerald-400/70 font-mono mb-8">Payment Logged</p>
             
             <div class="py-6 bg-slate-800/50 rounded border border-white/5 mb-8">
                 <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 font-mono">Total Due</div>
@@ -120,7 +120,7 @@ require_once '../includes/auth_check.php';
             </div>
             
             <button onclick="closeModal('endModal'); window.location.reload();" class="btn btn-primary w-full justify-center">
-                Acknowledge
+                Close
             </button>
         </div>
     </div>
@@ -128,15 +128,15 @@ require_once '../includes/auth_check.php';
     <!-- Add Station Modal (Admin Only) -->
     <div id="addStationModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="glass-panel w-96 p-8 relative">
-            <h3 class="text-xl font-bold mb-6 text-white font-['Orbitron'] tracking-wider">New Terminal</h3>
+            <h3 class="text-xl font-bold mb-6 text-white font-['Orbitron'] tracking-wider">Add Computer</h3>
             <form id="addStationForm">
-                <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Node Identifier</label>
-                <input type="text" id="add-station-name" class="input-field mb-8" required placeholder="e.g. NODE-01">
+                <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Computer Name</label>
+                <input type="text" id="add-station-name" class="input-field mb-8" required placeholder="e.g. PC-11">
                 
                 <div class="flex justify-end space-x-3">
                     <button type="button" onclick="closeModal('addStationModal')" class="btn btn-secondary text-xs">Cancel</button>
                     <button type="submit" class="btn btn-primary text-xs">
-                        Deploy
+                        Add
                     </button>
                 </div>
             </form>
@@ -146,18 +146,18 @@ require_once '../includes/auth_check.php';
     <!-- Edit Station Modal (Admin Only) -->
     <div id="editStationModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="glass-panel w-96 p-8 relative">
-            <h3 class="text-xl font-bold mb-6 text-white font-['Orbitron'] tracking-wider">Config Terminal</h3>
+            <h3 class="text-xl font-bold mb-6 text-white font-['Orbitron'] tracking-wider">Edit Computer</h3>
             <form id="editStationForm">
                 <input type="hidden" id="edit-station-id">
                 
-                <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Node ID</label>
+                <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Computer Name</label>
                 <input type="text" id="edit-station-name" class="input-field mb-6" required>
                 
                 <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Rate (PHP/hr)</label>
-                <input type="number" step="0.25" id="edit-station-rate" class="input-field mb-6" placeholder="Inherit System Default">
+                <input type="number" step="0.25" id="edit-station-rate" class="input-field mb-6" placeholder="Default Rate">
 
                 <div id="edit-status-container">
-                    <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Initial Status</label>
+                    <label class="block mb-2 text-[10px] text-cyan-500 uppercase font-bold tracking-widest font-mono">Current Status</label>
                     <div class="relative">
                          <select id="edit-station-status" class="input-field appearance-none cursor-pointer uppercase">
                             <option value="Available">Available</option>
@@ -168,9 +168,9 @@ require_once '../includes/auth_check.php';
                 </div>
                 
                 <div class="flex justify-end space-x-3 mt-8">
-                    <button type="button" onclick="closeModal('editStationModal')" class="btn btn-secondary text-xs">Discard</button>
+                    <button type="button" onclick="closeModal('editStationModal')" class="btn btn-secondary text-xs">Cancel</button>
                     <button type="submit" class="btn btn-primary text-xs">
-                        Save Config
+                        Save Changes
                     </button>
                 </div>
             </form>
@@ -180,16 +180,16 @@ require_once '../includes/auth_check.php';
     <!-- Delete Station Modal (Admin Only) -->
     <div id="deleteStationModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex items-center justify-center z-50">
         <div class="glass-panel w-96 p-8 relative border-red-500/30">
-            <h3 class="text-xl font-bold mb-4 text-white font-['Orbitron'] tracking-wider text-red-400">Delete Node?</h3>
+            <h3 class="text-xl font-bold mb-4 text-white font-['Orbitron'] tracking-wider text-red-400">Delete Computer?</h3>
             <p class="text-xs text-gray-400 font-mono mb-8">
-                Confirm deletion of <span id="delete-station-name" class="font-bold text-white"></span>. This action is irreversible.
+                Are you sure you want to delete <span id="delete-station-name" class="font-bold text-white"></span>? This cannot be undone.
             </p>
             <input type="hidden" id="delete-station-id">
             
             <div class="flex justify-end space-x-3">
                 <button onclick="closeModal('deleteStationModal')" class="btn btn-secondary text-xs">Cancel</button>
                 <button onclick="processDeleteComputer()" class="btn btn-danger text-xs">
-                    Confirm Delete
+                    Delete
                 </button>
             </div>
         </div>

@@ -78,18 +78,46 @@ async function cancelWaitlist(id) {
 }
 window.cancelWaitlist = cancelWaitlist;
 
+// Custom Dropdown Logic
+function setupDropdown() {
+    const trigger = document.getElementById('dropdown-trigger');
+    const list = document.getElementById('dropdown-list');
+    const container = document.getElementById('custom-dropdown-container');
+
+    if(trigger && list) {
+        // Toggle
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent immediate close
+            list.classList.toggle('hidden');
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) {
+                list.classList.add('hidden');
+            }
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', setupDropdown);
+
 async function openAssignModal(id, name) {
     document.getElementById('assign-id').value = id;
     document.getElementById('assign-name').textContent = `CUSTOMER: ${name}`;
     
+    // Reset Dropdown
+    document.getElementById('assign-station-select').value = '';
+    document.getElementById('dropdown-selected-text').textContent = 'SELECT TERMINAL';
+    document.getElementById('dropdown-selected-text').className = 'text-gray-400';
+    
     // Fetch available stations
     const res = await fetch('../api/computers.php');
     const json = await res.json();
-    const select = document.getElementById('assign-station-select');
-    select.innerHTML = '';
+    const list = document.getElementById('dropdown-list');
+    list.innerHTML = '';
     
     // Status is 'Available' in computers table
-    // Deduplicate and Filter
     const seen = new Set();
     const available = json.data.filter(s => {
         if(s.status === 'Available' && !seen.has(s.id)) {
@@ -100,10 +128,21 @@ async function openAssignModal(id, name) {
     });
     
     if(available.length === 0) {
-        select.innerHTML = '<option disabled selected>NO TERMINALS AVAILABLE</option>';
+        list.innerHTML = `<div class="p-3 text-sm text-gray-500 font-mono italic">NO TERMINALS AVAILABLE</div>`;
     } else {
         available.forEach(s => {
-            select.innerHTML += `<option value="${s.id}">${s.computer_name}</option>`;
+            const item = document.createElement('div');
+            item.className = 'p-3 hover:bg-purple-900/30 cursor-pointer text-sm text-gray-300 hover:text-white transition font-mono border-b border-gray-800 last:border-0';
+            item.textContent = s.computer_name;
+            item.onclick = () => {
+                // Select Item
+                document.getElementById('assign-station-select').value = s.id;
+                const disp = document.getElementById('dropdown-selected-text');
+                disp.textContent = s.computer_name;
+                disp.className = 'text-white font-bold tracking-widest';
+                document.getElementById('dropdown-list').classList.add('hidden');
+            };
+            list.appendChild(item);
         });
     }
     
@@ -114,10 +153,9 @@ window.openAssignModal = openAssignModal;
 async function submitAssign() {
     console.log("Submit Assign Triggered");
     const waitlistId = document.getElementById('assign-id').value;
-    const stationSelect = document.getElementById('assign-station-select');
-    const stationId = stationSelect.value;
+    const stationId = document.getElementById('assign-station-select').value;
     
-    if(!stationId || stationSelect.options[stationSelect.selectedIndex].disabled) {
+    if(!stationId) {
         alert("Please select a valid Available Terminal.");
         return;
     }

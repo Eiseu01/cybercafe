@@ -31,6 +31,13 @@ try {
         $params[] = $search;
     }
 
+    // 3. Subquery (High Rollers)
+    // [REQ: SUBQUERY IMPLEMENTATION]
+    $filter = $_GET['filter'] ?? '';
+    if ($filter === 'high_rollers') {
+        $conditions[] = "t.amount > (SELECT AVG(amount) FROM transactions)";
+    }
+
     // Build WHERE clause
     $whereSql = "";
     if (!empty($conditions)) {

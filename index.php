@@ -176,11 +176,93 @@
         </div>
     </footer>
 
+    <!-- Shader Scripts -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        uniform vec2 u_mouse;
+        
+        varying vec2 vUv;
+
+        // Psuedo-random function from The Book of Shaders
+        float random (in vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+
+        // Noise function
+        float noise (in vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+
+            // Four corners in 2D of a tile
+            float a = random(i);
+            float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0));
+            float d = random(i + vec2(1.0, 1.0));
+
+            vec2 u = f * f * (3.0 - 2.0 * f);
+
+            return mix(a, b, u.x) +
+                    (c - a)* u.y * (1.0 - u.x) +
+                    (d - b) * u.x * u.y;
+        }
+
+        void main() {
+            vec2 st = gl_FragCoord.xy / u_resolution.xy;
+            st.x *= u_resolution.x / u_resolution.y; // Aspect correction
+
+            vec3 color = vec3(0.0);
+
+            // 1. Background Gradient (Dark Blue/Slate)
+            vec3 color1 = vec3(0.06, 0.09, 0.16); // Slate 900ish
+            vec3 color2 = vec3(0.02, 0.04, 0.1);  // Darker
+            
+            // Vignette
+            float dist = distance(st, vec2(0.5 * (u_resolution.x/u_resolution.y), 0.5));
+            color = mix(color1, color2, dist * 1.5);
+
+            // 2. Moving Grid System
+            vec2 gridUV = st * 6.0; // Scale 
+            gridUV.y -= u_time * 0.2; // Move down
+            
+            // Add some waviness to the grid
+            gridUV.x += sin(gridUV.y * 3.0 + u_time * 0.5) * 0.1;
+
+            vec2 gridPos = fract(gridUV);
+            
+            // Thin lines
+            float lineRes = 0.02;
+            float gridVal = smoothstep(lineRes, 0.0, gridPos.x) + smoothstep(1.0-lineRes, 1.0, gridPos.x) +
+                            smoothstep(lineRes, 0.0, gridPos.y) + smoothstep(1.0-lineRes, 1.0, gridPos.y);
+            
+            // 3. Digital Pulse / "Data Stream"
+            float pulse = noise(vec2(st.x * 2.0, st.y * 2.0 - u_time * 0.5));
+            float beam = smoothstep(0.6, 0.7, pulse) * smoothstep(0.8, 0.7, pulse); // Isolate specific noise band
+            
+            // Combine with Cyber Cyan Color
+            vec3 gridColor = vec3(0.0, 0.8, 1.0); // Cyan
+            
+            // Final mixing
+            color += gridVal * gridColor * 0.15 * (1.0 - dist); // Fade grid at edges
+            color += beam * vec3(0.0, 0.5, 1.0) * 0.3; // Add "Code" beams
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+
     <!-- Three.js Scene -->
     <script>
         const scene = new THREE.Scene();
-        // Fog to blend particles into the background color
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.001);
+        // Remove fog as we are handling background in shader
+        // scene.fog = new THREE.FogExp2(0x0f172a, 0.001);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -188,38 +270,74 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('hero-canvas').appendChild(renderer.domElement);
 
+        // --- SHADER BACKGROUND ---
+        const shaderGeometry = new THREE.PlaneGeometry(2, 2); // Full screen quad setup typically, but for Scene bg we usually use a big plane or actual background
+        // For a true background effect in ThreeJS without a helper library, putting a large plane behind everything is easiest.
+        // Or strictly mapping to screen coords. Here we will use a large plane fixed to camera or just filling view.
+        // Better approach for "Background": Use a mesh that fills the screen at a fixed depth.
+        
+        // Actually, create a PlaneGeometry that covers the view at z = -10
+        // Calculate needed size based on FOV and distance
+        const dist = 50;
+        const vFOV = THREE.Math.degToRad(camera.fov); 
+        const height = 2 * Math.tan(vFOV / 2) * dist;
+        const width = height * camera.aspect;
+
+        const bgGeometry = new THREE.PlaneGeometry(width * 1.5, height * 1.5); // *1.5 for safety margin on rotation/movement
+        
+        const uniforms = {
+            u_time: { value: 0.0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            u_mouse: { value: new THREE.Vector2(0, 0) }
+        };
+
+        const bgMaterial = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: document.getElementById('vertexShader').textContent,
+            fragmentShader: document.getElementById('fragmentShader').textContent,
+            transparent: false
+        });
+
+        const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+        bgMesh.position.z = -20; // Put it well behind
+        scene.add(bgMesh);
+
+
+        // --- EXISTING ELEMENTS (Enhanced) ---
+
         // Starfield
         const starsGeometry = new THREE.BufferGeometry();
-        const starsCount = 1500;
+        const starsCount = 2000;
         const posArray = new Float32Array(starsCount * 3);
 
         for(let i = 0; i < starsCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 100; // Spread stars
+            posArray[i] = (Math.random() - 0.5) * 120; // Wider spread
         }
 
         starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         const starsMaterial = new THREE.PointsMaterial({
-            size: 0.15,
+            size: 0.2, // Slightly larger
             color: 0x22d3ee, // Cyan stars
             transparent: true,
-            opacity: 0.8
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
         });
         const starMesh = new THREE.Points(starsGeometry, starsMaterial);
         scene.add(starMesh);
 
         // Floating Geometric Shapes (Debris)
         const geometry = new THREE.IcosahedronGeometry(1, 0);
-        const material = new THREE.MeshBasicMaterial({ color: 0x6366f1, wireframe: true, transparent: true, opacity: 0.3 });
+        const material = new THREE.MeshBasicMaterial({ color: 0x6366f1, wireframe: true, transparent: true, opacity: 0.4 });
         
         const shapes = [];
-        for(let i=0; i<15; i++) {
+        for(let i=0; i<20; i++) {
             const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.x = (Math.random() - 0.5) * 40;
-            mesh.position.y = (Math.random() - 0.5) * 40;
-            mesh.position.z = (Math.random() - 0.5) * 40;
+            mesh.position.x = (Math.random() - 0.5) * 60;
+            mesh.position.y = (Math.random() - 0.5) * 60;
+            mesh.position.z = (Math.random() - 0.5) * 40; // Some closer, some further
             mesh.rotation.x = Math.random() * Math.PI;
             scene.add(mesh);
-            shapes.push({ mesh, speed: (Math.random() * 0.02) + 0.005 });
+            shapes.push({ mesh, speed: (Math.random() * 0.02) + 0.005, floatOffset: Math.random() * 100 });
         }
 
         camera.position.z = 30;
@@ -236,6 +354,10 @@
         document.addEventListener('mousemove', (event) => {
             mouseX = (event.clientX - windowHalfX);
             mouseY = (event.clientY - windowHalfY);
+            
+            // Normalize for shader
+            uniforms.u_mouse.value.x = event.clientX / window.innerWidth;
+            uniforms.u_mouse.value.y = 1.0 - (event.clientY / window.innerHeight); // Flip Y
         });
 
         // Loop
@@ -246,6 +368,9 @@
             targetY = mouseY * 0.001;
 
             const elapsedTime = clock.getElapsedTime();
+            
+            // Update Shader Uniforms
+            uniforms.u_time.value = elapsedTime;
 
             // Smooth rotation for starfield
             starMesh.rotation.y += 0.0005;
@@ -254,13 +379,17 @@
             // Interactive rotation
             starMesh.rotation.y += 0.05 * (targetX - starMesh.rotation.y);
             starMesh.rotation.x += 0.05 * (targetY - starMesh.rotation.x);
+            
+            // Also rotate the background slightly for parallax feel
+            bgMesh.rotation.x = targetY * 0.1;
+            bgMesh.rotation.y = targetX * 0.1;
 
             // Animate Shapes
             shapes.forEach(item => {
                 item.mesh.rotation.x += item.speed;
                 item.mesh.rotation.y += item.speed;
-                // Gentle bobbing
-                item.mesh.position.y += Math.sin(elapsedTime + item.mesh.position.x) * 0.01;
+                // Complex Float
+                item.mesh.position.y += Math.sin(elapsedTime * 0.5 + item.floatOffset) * 0.02;
             });
 
             renderer.render(scene, camera);
@@ -274,6 +403,17 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Update Shader Resolution
+            uniforms.u_resolution.value.x = window.innerWidth;
+            uniforms.u_resolution.value.y = window.innerHeight;
+            
+            // Update Grid Plane Size (Keep it covering screen)
+            const vFOV = THREE.Math.degToRad(camera.fov); 
+            const height = 2 * Math.tan(vFOV / 2) * dist;
+            const width = height * camera.aspect;
+            bgMesh.geometry.dispose(); // Cleanup old
+            bgMesh.geometry = new THREE.PlaneGeometry(width * 1.5, height * 1.5);
         });
 
         // Scroll Effect (Fade out canvas content on scroll)

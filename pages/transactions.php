@@ -38,12 +38,17 @@ require_once '../includes/db_connect.php';
             </div>
 
             <!-- Header -->
-            <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10 sticky top-0">
-                <div>
-                    <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-['Orbitron'] neon-text">
-                        Transaction History
-                    </h1>
-                    <p class="text-xs text-cyan-500/70 font-mono mt-1 uppercase tracking-wider">Financial Logs & Audit Trail</p>
+            <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10 sticky top-0 shrink-0">
+                <div class="flex items-center gap-4">
+                    <button id="mobile-menu-btn" class="lg:hidden text-cyan-500 hover:text-white transition">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-['Orbitron'] neon-text">
+                            Transaction History
+                        </h1>
+                        <p class="text-xs text-cyan-500/70 font-mono mt-1 uppercase tracking-wider">Financial Logs & Audit Trail</p>
+                    </div>
                 </div>
                 
                 <div class="flex items-center gap-4">
@@ -68,7 +73,7 @@ require_once '../includes/db_connect.php';
 
                 <!-- Date Filter -->
                  <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1 pr-3">
-                    <input type="date" id="date-filter" class="bg-transparent text-slate-300 text-sm border-none outline-none pl-3 cursor-pointer">
+                    <input type="date" id="date-filter" class="bg-transparent text-slate-300 text-sm border-none outline-none pl-3 cursor-pointer" style="color-scheme: dark;">
                     <button id="btn-show-all" class="text-xs font-bold text-indigo-400 hover:text-white px-3 py-1.5 rounded hover:bg-white/5 transition uppercase tracking-wide">
                         Show All
                     </button>

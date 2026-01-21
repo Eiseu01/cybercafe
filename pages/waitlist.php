@@ -25,12 +25,17 @@ require_once '../includes/auth_check.php';
              style="background-image: linear-gradient(#334155 1px, transparent 1px), linear-gradient(to right, #334155 1px, transparent 1px); background-size: 40px 40px;">
         </div>
 
-        <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10 sticky top-0">
-            <div>
-                <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-orbitron neon-text" style="font-family: 'Orbitron', sans-serif;">
-                    Waiting Queue
-                </h1>
-                <p class="text-xs text-cyan-500/70 font-mono mt-1 uppercase tracking-wider">Customer Allocation & Priority</p>
+        <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10 sticky top-0 shrink-0">
+            <div class="flex items-center gap-4">
+                <button id="mobile-menu-btn" class="lg:hidden text-cyan-500 hover:text-white transition">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <div>
+                    <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-orbitron neon-text" style="font-family: 'Orbitron', sans-serif;">
+                        Waiting Queue
+                    </h1>
+                    <p class="text-xs text-cyan-500/70 font-mono mt-1 uppercase tracking-wider">Customer Allocation & Priority</p>
+                </div>
             </div>
             <button onclick="document.getElementById('addWaitlistModal').classList.remove('hidden')" class="btn btn-primary shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                 <i class="fas fa-plus"></i> <span>Add Entry</span>
@@ -81,9 +86,21 @@ require_once '../includes/auth_check.php';
             <form id="assignForm">
                 <input type="hidden" id="assign-id">
                 <label class="block mb-2 text-xs text-gray-400 uppercase tracking-widest">Select Terminal</label>
-                <select id="assign-station-select" class="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 mb-6 focus:ring-2 focus:ring-purple-500 outline-none text-white font-mono">
-                    <!-- Options via JS -->
-                </select>
+                
+                <!-- Custom Dropdown -->
+                <div class="relative" id="custom-dropdown-container">
+                    <input type="hidden" id="assign-station-select">
+                    
+                    <button type="button" id="dropdown-trigger" class="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 mb-6 focus:border-purple-500 outline-none text-white font-mono flex justify-between items-center text-left">
+                        <span id="dropdown-selected-text" class="text-gray-400">SELECT TERMINAL</span>
+                        <i class="fas fa-chevron-down text-xs text-purple-500"></i>
+                    </button>
+                    
+                    <!-- Dropdown List -->
+                    <div id="dropdown-list" class="hidden absolute top-full left-0 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto custom-scrollbar">
+                        <!-- Options injected via JS -->
+                    </div>
+                </div>
                 
                 <div class="flex justify-end space-x-3">
                     <button type="button" onclick="document.getElementById('assignModal').classList.add('hidden')" class="px-4 py-2 text-gray-400 hover:text-white transition uppercase text-xs font-bold tracking-wider">Cancel</button>

@@ -20,12 +20,17 @@ require_once '../includes/auth_check.php';
     <main class="flex-1 flex flex-col overflow-hidden relative">
         
         <!-- Header -->
-        <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10">
-            <div>
-                <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-['Orbitron'] neon-text">
-                    Control Deck
-                </h1>
-                <p class="text-xs text-cyan-500/70 font-mono mt-1">SYSTEM STATUS: ONLINE</p>
+        <header class="py-4 px-8 flex justify-between items-center bg-slate-900/50 backdrop-blur-sm border-b border-cyan-500/10 z-10 shrink-0">
+            <div class="flex items-center gap-4">
+                <button id="mobile-menu-btn" class="lg:hidden text-cyan-500 hover:text-white transition">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <div>
+                    <h1 class="text-2xl font-bold text-white tracking-widest uppercase font-['Orbitron'] neon-text">
+                        Dashboard
+                    </h1>
+                    <p class="text-xs text-cyan-500/70 font-mono mt-1">SYSTEM STATUS: ONLINE</p>
+                </div>
             </div>
             <div class="flex items-center space-x-4">
                 <div class="text-xs font-mono px-3 py-1 bg-cyan-900/20 rounded border border-cyan-500/30 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
@@ -35,10 +40,10 @@ require_once '../includes/auth_check.php';
         </header>
 
         <!-- Content Body -->
-        <div class="flex-1 flex flex-col p-6 min-h-0" id="app">
+        <div class="flex-1 flex flex-col p-4 lg:p-6 min-h-0 overflow-y-auto lg:overflow-hidden" id="app">
             
             <!-- Stats Row -->
-            <div class="grid gap-4 mb-6 shrink-0" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 shrink-0">
                 <!-- Revenue -->
                 <div class="glass-panel p-4 flex flex-col justify-between h-24 relative overflow-hidden group">
                     <div class="absolute -right-6 -top-6 w-20 h-20 bg-cyan-500/10 rounded-full blur-xl group-hover:bg-cyan-500/20 transition-all"></div>
@@ -48,7 +53,6 @@ require_once '../includes/auth_check.php';
                     </div>
                     <div class="relative z-10">
                         <h3 class="text-2xl font-bold text-white tracking-widest font-mono" id="stat-revenue">--</h3>
-                        <div id="stat-growth" class="mt-1 text-[10px] font-mono">--</div>
                     </div>
                 </div>
 
@@ -102,7 +106,7 @@ require_once '../includes/auth_check.php';
                     <h3 class="text-lg font-bold text-white mb-6 uppercase font-mono tracking-widest flex items-center shrink-0">
                         <i class="fas fa-stream mr-3 text-cyan-400"></i> Recent Transactions
                     </h3>
-                    <div id="feed-container" class="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                    <div id="feed-container" class="pr-2 flex-1 pb-4 min-h-0 flex flex-col justify-between overflow-hidden">
                         <div class="animate-pulse flex items-center space-x-4 opacity-50">
                             <div class="h-8 w-8 bg-cyan-900/30 rounded"></div>
                             <div class="flex-1 space-y-2">
@@ -119,7 +123,7 @@ require_once '../includes/auth_check.php';
                     <h3 class="text-lg font-bold text-white mb-6 uppercase font-mono tracking-widest flex items-center shrink-0">
                         <i class="fas fa-trophy mr-3 text-amber-400"></i> Elite Users
                     </h3>
-                    <div id="leaderboard-container" class="space-y-1 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                    <div id="leaderboard-container" class="flex flex-col justify-between h-full pr-2">
                          <div class="text-center text-gray-500 text-xs font-mono animate-pulse">Scanning database...</div>
                     </div>
                 </div>

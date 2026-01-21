@@ -75,7 +75,11 @@ if ($method === 'POST') {
             $stmt->execute([$name]);
             echo json_encode(['success' => true, 'message' => 'Computer added']);
         } catch (PDOException $e) {
-             echo json_encode(['success' => false, 'message' => 'Error adding computer: ' . $e->getMessage()]);
+            if ($e->getCode() == '23000') {
+                 echo json_encode(['success' => false, 'message' => 'Computer name already exists']);
+            } else {
+                 echo json_encode(['success' => false, 'message' => 'Error adding computer: ' . $e->getMessage()]);
+            }
         }
         exit;
     }
@@ -124,7 +128,11 @@ if ($method === 'POST') {
             
             echo json_encode(['success' => true, 'message' => 'Computer updated']);
         } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+            if ($e->getCode() == '23000') {
+                echo json_encode(['success' => false, 'message' => 'Computer name already exists']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+            }
         }
         exit;
     }

@@ -139,18 +139,110 @@
         <div>ENCRYPTION: <span class="text-cyan-500/60">AES-256</span></div>
     </div>
 
-    <!-- Three.js Logic -->
+    <!-- Shader Scripts -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        uniform vec2 u_mouse;
+        
+        varying vec2 vUv;
+
+        // Psuedo-random function
+        float random (in vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+
+        // Noise function
+        float noise (in vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+            float a = random(i);
+            float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0));
+            float d = random(i + vec2(1.0, 1.0));
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+
+        void main() {
+            vec2 st = gl_FragCoord.xy / u_resolution.xy;
+            st.x *= u_resolution.x / u_resolution.y;
+
+            vec3 color = vec3(0.0);
+
+            // 1. Background Gradient (Darker for Login)
+            vec3 color1 = vec3(0.04, 0.06, 0.12); 
+            vec3 color2 = vec3(0.01, 0.02, 0.05);  
+            
+            float dist = distance(st, vec2(0.5 * (u_resolution.x/u_resolution.y), 0.5));
+            color = mix(color1, color2, dist * 1.5);
+
+            // 2. Grid (Subtler for Login)
+            vec2 gridUV = st * 8.0; 
+            gridUV.y -= u_time * 0.1; 
+            gridUV.x += sin(gridUV.y * 2.0 + u_time * 0.3) * 0.05;
+
+            vec2 gridPos = fract(gridUV);
+            float lineRes = 0.03;
+            float gridVal = smoothstep(lineRes, 0.0, gridPos.x) + smoothstep(1.0-lineRes, 1.0, gridPos.x) +
+                            smoothstep(lineRes, 0.0, gridPos.y) + smoothstep(1.0-lineRes, 1.0, gridPos.y);
+            
+            // 3. Digital Rain/Pulse
+            float pulse = noise(vec2(st.x * 4.0, st.y * 4.0 - u_time * 0.8));
+            float beam = smoothstep(0.6, 0.65, pulse) * smoothstep(0.8, 0.65, pulse);
+            
+            vec3 gridColor = vec3(0.0, 0.6, 0.8); 
+            
+            color += gridVal * gridColor * 0.1 * (1.0 - dist); 
+            color += beam * vec3(0.0, 0.4, 0.8) * 0.15; 
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
     <script>
         // Scenario Setup
         const scene = new THREE.Scene();
-        // Fog for depth fading
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
+        // Remove fog so we can see the custom shader background clearly
+        // scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // --- BACKGROUND SHADER ---
+        const uniforms = {
+            u_time: { value: 0.0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            u_mouse: { value: new THREE.Vector2(0, 0) }
+        };
+
+        const bgMaterial = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: document.getElementById('vertexShader').textContent,
+            fragmentShader: document.getElementById('fragmentShader').textContent,
+            transparent: false
+        });
+
+        // Calculate plane size to cover screen at z = -30
+        const dist = 40; // Behind the core (z=0) and camera (z=20)
+        const vFOV = THREE.Math.degToRad(camera.fov); 
+        const height = 2 * Math.tan(vFOV / 2) * (dist + 20); // dist from camera
+        const width = height * camera.aspect;
+
+        const bgGeometry = new THREE.PlaneGeometry(width * 1.5, height * 1.5);
+        const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+        bgMesh.position.z = -30;
+        scene.add(bgMesh);
 
         // Geometries
         const geometry = new THREE.IcosahedronGeometry(10, 2); // Core Shape
@@ -203,11 +295,20 @@
         document.addEventListener('mousemove', (event) => {
             mouseX = event.clientX - window.innerWidth / 2;
             mouseY = event.clientY - window.innerHeight / 2;
+            
+            // Normalize for shader
+            uniforms.u_mouse.value.x = event.clientX / window.innerWidth;
+            uniforms.u_mouse.value.y = 1.0 - (event.clientY / window.innerHeight);
         });
 
         // Animation Loop
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
+            
+            const elapsedTime = clock.getElapsedTime();
+            uniforms.u_time.value = elapsedTime;
 
             // Rotate Core
             core.rotation.x += 0.001;
@@ -235,6 +336,17 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Update Shader Resolution
+            uniforms.u_resolution.value.x = window.innerWidth;
+            uniforms.u_resolution.value.y = window.innerHeight;
+
+            // Resize bg
+            const vFOV = THREE.Math.degToRad(camera.fov); 
+            const height = 2 * Math.tan(vFOV / 2) * (dist + 20);
+            const width = height * camera.aspect;
+            bgMesh.geometry.dispose();
+            bgMesh.geometry = new THREE.PlaneGeometry(width * 1.5, height * 1.5);
         });
 
         // Form Logic (Preserved)

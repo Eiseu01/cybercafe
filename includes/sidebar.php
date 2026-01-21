@@ -1,5 +1,5 @@
 <!-- includes/sidebar.php -->
-<aside class="w-64 bg-[#0B1120] border-r border-white/5 flex flex-col h-full relative z-20 shadow-2xl">
+<aside id="sidebar" class="w-64 bg-[#0B1120] border-r border-white/5 flex flex-col h-full z-20 shadow-2xl fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:static transition-transform duration-300">
     
     <div class="px-6 py-8 flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-indigo-500/30">
